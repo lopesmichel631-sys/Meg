@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1B1614">
+<title>Extrator — Meg</title>
+<style>
+:root{--fundo:#1B1614;--papel:#FBF7EE;--tinta:#15100F;--suave:#6E645C;--regua:#CDC2AA;--vinho:#8E2C3B;}
+*{box-sizing:border-box;}
+html,body{margin:0;background:var(--fundo);color:var(--papel);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+.raiz{max-width:620px;margin:0 auto;padding:22px 16px 60px;}
+h1{font-size:26px;margin:0 0 2px;letter-spacing:.01em;}
+.sub{font-size:12px;color:rgba(251,247,238,.45);margin:0 0 20px;letter-spacing:.16em;text-transform:uppercase;}
+.caixa{background:var(--papel);color:var(--tinta);border-radius:3px;padding:16px;margin-bottom:14px;}
+.rot{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);display:block;margin-bottom:9px;}
+button{font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  padding:10px 15px;border-radius:2px;border:none;background:var(--vinho);color:var(--papel);cursor:pointer;}
+button.fraco{background:transparent;color:var(--tinta);border:1px solid var(--regua);}
+button:disabled{opacity:.35;cursor:default;}
+.fileiras{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+input[type=file]{display:none;}
+input[type=text],input:not([type]),textarea{width:100%;font-family:inherit;font-size:14px;padding:9px 10px;
+  border:1px solid var(--regua);border-radius:2px;background:#fff;color:var(--tinta);}
+textarea{resize:vertical;}
+.campo{display:block;margin-bottom:9px;}
+.campo>span{display:block;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:3px;}
+.aviso{font-size:12px;color:var(--suave);margin:9px 0 0;min-height:16px;line-height:1.5;}
+.aviso.erro{color:var(--vinho);}
+.vazio{font-size:13px;color:var(--suave);margin:0;}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 10px;}
+.tags span{font-size:11px;padding:3px 8px;border:1px solid var(--regua);border-radius:2px;}
+.conta{font-size:11px;color:var(--suave);margin:9px 0 0;}
+.dica{font-size:11.5px;color:rgba(251,247,238,.5);line-height:1.55;margin:0 0 14px;}
+hr{border:none;border-top:1px solid var(--regua);margin:14px 0;}
+</style>
+</head>
+<body>
+
+<div class="raiz">
+  <h1>Extrator</h1>
+  <p class="sub">Android → Meg</p>
+  <p class="dica">Lê os prints do perfil aqui no Android e manda os dados prontos para o Meg no iPhone.</p>
+
+  <div class="caixa">
+    <span class="rot">1 · Prints do perfil</span>
+    <div class="fileiras">
+      <button id="escolher">Escolher prints</button>
+      <button id="colar" class="fraco">Colar texto</button>
+      <button id="limpar" class="fraco">Limpar</button>
+      <input type="file" id="arquivos" accept="image/*" multiple>
+    </div>
+    <p class="conta" id="prints"></p>
+    <p class="aviso" id="aviso"></p>
+    <hr>
+    <label class="campo">
+      <span>Ou cole o texto à mão (Google Lens)</span>
+      <textarea id="texto" rows="3"></textarea>
+    </label>
+    <button id="addtexto" class="fraco">Adicionar texto</button>
+  </div>
+
+  <div class="caixa">
+    <span class="rot">2 · Conferir e corrigir</span>
+    <div id="campos"></div>
+    <button id="guardar">Guardar na fila</button>
+  </div>
+
+  <div class="caixa">
+    <span class="rot">3 · Mandar para o iPhone</span>
+    <label class="campo">
+      <span>Endereço do Meg no iPhone</span>
+      <input type="text" id="destino" placeholder="https://seusite/meg/">
+    </label>
+    <div class="fileiras">
+      <button id="enviar">Compartilhar</button>
+      <button id="copiar" class="fraco">Copiar link</button>
+      <button id="baixar" class="fraco">Baixar .json</button>
+      <button id="zerarfila" class="fraco">Zerar fila</button>
+    </div>
+    <p class="conta" id="fila"></p>
+    <label class="campo" style="margin-top:9px">
+      <span>Link gerado</span>
+      <textarea id="link" rows="2" readonly></textarea>
+    </label>
+  </div>
+</div>
+
+<script>
+/* ── leitor de perfil: texto colado do print -> campos ──── */
+const RELOGIO = /(^|\s)\d{1,2}:\d{2}(\s|$)/g;
+const SO_SIMBOLO = /^[^\p{L}\p{N}]+$/u;
+const FIM_FRASE = /[.!?…:]$|\.\.\.$/;
+const PROMPT_FIM = /\.\.\.$|…$/;
+const FUMO_VOCAB = ["never", "rarely", "socially", "often", "sometimes", "yes", "no"];
+
+const LIXO_PERFIL = [
+  /^see less\b/i,
+  /^see more$/i,
+  /^see more about\b/i,
+  /^liked you\b/i,
+  /^also interested in\b/i,
+  /^\d+ (other )?things? in common\b/i,
+  /^music$/i,
+  /^(swipe|tap) /i,
+];
+
+const linhasDe = (bloco) =>
+  String(bloco || "")
+    .split(/\r?\n/)
+    .map((l) => l.replace(RELOGIO, " ").replace(/\s+/g, " ").trim())
+    .filter((l) => l && !SO_SIMBOLO.test(l));
+
+const chaveLinha = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/* emenda os prints: acha a maior sobreposição entre o fim de um e o começo do outro */
+const emendarBlocos = (blocos) => {
+  let out = [];
+  for (const bruto of blocos) {
+    const b = linhasDe(bruto);
+    if (!b.length) continue;
+    if (!out.length) {
+      out = b;
+      continue;
+    }
+    const max = Math.min(out.length, b.length);
+    let k = 0;
+    for (let n = max; n > 0; n--) {
+      const a = out.slice(-n).map(chaveLinha).join("\n");
+      const c = b.slice(0, n).map(chaveLinha).join("\n");
+      if (a && a === c) {
+        k = n;
+        break;
+      }
+    }
+    out = out.concat(b.slice(k));
+  }
+  /* rede de segurança: repetida solta ou pedaço de outra maior */
+  const vistas = [];
+  const res = [];
+  for (const l of out) {
+    const k = chaveLinha(l);
+    if (!k || vistas.indexOf(k) >= 0) continue;
+    if (k.split(" ").length >= 5) {
+      if (vistas.some((v) => v.includes(k))) continue;
+      const i = vistas.findIndex((v) => k.includes(v) && v.split(" ").length >= 5);
+      if (i >= 0) {
+        vistas[i] = k;
+        res[i] = l;
+        continue;
+      }
+    }
+    vistas.push(k);
+    res.push(l);
+  }
+  return res;
+};
+
+/* junta o que a largura da tela quebrou no meio da frase */
+const desembrulhar = (linhas) => {
+  const out = [];
+  for (const l of linhas) {
+    const ant = out[out.length - 1];
+    if (ant) {
+      const abertos = (ant.match(/\(/g) || []).length - (ant.match(/\)/g) || []).length;
+      if (!FIM_FRASE.test(ant) && (ant.endsWith(",") || abertos > 0 || /^[a-zà-ÿ]/.test(l))) {
+        out[out.length - 1] = ant + " " + l;
+        continue;
+      }
+    }
+    out.push(l);
+  }
+  return out;
+};
+
+const lerPerfil = (blocos) => {
+  let linhas = desembrulhar(emendarBlocos(blocos));
+
+  /* fora o carrossel de músicas */
+  const iMus = linhas.findIndex((l) => /^music$/i.test(l));
+  if (iMus >= 0) {
+    let fim = iMus + 1;
+    while (
+      fim < linhas.length &&
+      linhas[fim].length < 60 &&
+      !/^(Located in|Looking for|See more about)/i.test(linhas[fim]) &&
+      !/^[A-Za-zÀ-ÿ'’\-\.]{2,20},\s*\d{1,2}\b/.test(linhas[fim])
+    )
+      fim++;
+    linhas = linhas.slice(0, iMus).concat(linhas.slice(fim));
+  }
+
+  const usada = new Array(linhas.length).fill(false);
+  const marca = (i) => {
+    usada[i] = true;
+  };
+  const out = {
+    nome: "",
+    idade: "",
+    local: "",
+    altura: "",
+    trabalho: "",
+    fumo: "",
+    busca: "",
+    tags: [],
+    personalidade: "",
+    notas: "",
+  };
+
+  /* interesses: tudo entre "See more about" e "See less" */
+  const iIni = linhas.findIndex((l) => /^see more about\b/i.test(l));
+  const iFim = iIni < 0 ? -1 : linhas.findIndex((l, i) => i > iIni && /^see less\b/i.test(l));
+  if (iIni >= 0 && iFim > iIni) {
+    for (let i = iIni; i <= iFim; i++) {
+      marca(i);
+      if (i === iIni || i === iFim) continue;
+      linhas[i]
+        .split(/\s{2,}/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .forEach((t) => {
+          if (t.length <= 40 && !out.tags.includes(t)) out.tags.push(t);
+        });
+    }
+  }
+
+  linhas.forEach((l, i) => {
+    if (usada[i]) return;
+    if (!out.nome) {
+      const m = l.match(/^([A-Za-zÀ-ÿ'’\-\.]{2,20}),\s*(\d{1,2})\b/);
+      if (m) {
+        out.nome = m[1];
+        out.idade = m[2];
+        marca(i);
+        return;
+      }
+    }
+    let m = l.match(/^Located in\s+(.+)$/i);
+    if (m) {
+      out.local = m[1].replace(/,\s*(California|CA)\s*$/i, "").trim();
+      marca(i);
+      return;
+    }
+    if (/^\d\s*'\s*\d{0,2}\s*"?$/.test(l)) {
+      out.altura = l.replace(/\s+/g, " ");
+      marca(i);
+      return;
+    }
+    m = l.match(/^Looking for\s+(.+)$/i);
+    if (m) {
+      out.busca = m[1].trim();
+      marca(i);
+      return;
+    }
+    if (FUMO_VOCAB.includes(chaveLinha(l))) {
+      out.fumo = l;
+      marca(i);
+      return;
+    }
+    m = l.match(/^Also\s+([A-ZÀ-Ý][a-zà-ÿ]+)$/);
+    if (m) {
+      if (!out.tags.includes(m[1])) out.tags.push(m[1]);
+      marca(i);
+      return;
+    }
+    if (LIXO_PERFIL.some((r) => r.test(l))) marca(i);
+  });
+
+  /* trabalho: a linha logo abaixo da altura */
+  const iAlt = linhas.findIndex((l) => /^\d\s*'\s*\d{0,2}\s*"?$/.test(l));
+  if (iAlt >= 0) {
+    for (let i = iAlt + 1; i < linhas.length; i++) {
+      if (usada[i]) continue;
+      out.trabalho = linhas[i];
+      marca(i);
+      break;
+    }
+  }
+  if (!out.trabalho) {
+    const i = linhas.findIndex((l, j) => !usada[j] && / at /.test(l) && l.length < 90);
+    if (i >= 0) {
+      out.trabalho = linhas[i];
+      marca(i);
+    }
+  }
+
+  /* prompts: pergunta termina em "..." e a resposta vem logo abaixo */
+  const prompts = [];
+  linhas.forEach((l, i) => {
+    if (usada[i] || !PROMPT_FIM.test(l)) return;
+    const j = linhas.findIndex((x, k) => k > i && !usada[k]);
+    if (j !== i + 1) return;
+    prompts.push(l.replace(PROMPT_FIM, "").trim() + " → " + linhas[j]);
+    marca(i);
+    marca(j);
+  });
+  out.personalidade = prompts.join("\n");
+
+  /* o que sobrou com corpo de frase vira nota */
+  out.notas = linhas
+    .filter((l, i) => !usada[i] && l.length >= 15 && !PROMPT_FIM.test(l))
+    .join("\n");
+
+  return out;
+};
+
+
+/* ── motor de OCR sob demanda (só carrega quando o leitor é usado) ── */
+const OCR_CDN = [
+  "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js",
+  "https://unpkg.com/tesseract.js@5/dist/tesseract.min.js",
+];
+
+let ocrPromessa = null;
+const carregarOCR = () => {
+  if (typeof window !== "undefined" && window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (ocrPromessa) return ocrPromessa;
+  ocrPromessa = new Promise((ok, falha) => {
+    let i = 0;
+    let pronto = false;
+    const encerra = (fn, arg) => {
+      if (pronto) return;
+      pronto = true;
+      fn(arg);
+    };
+    /* se o sandbox bloquear o script sem disparar erro, isso evita ficar preso em "Lendo…" */
+    const relogio = setTimeout(() => {
+      ocrPromessa = null;
+      encerra(falha, new Error("o leitor demorou demais para carregar"));
+    }, 15000);
+    const tentar = () => {
+      if (pronto) return;
+      if (i >= OCR_CDN.length) {
+        clearTimeout(relogio);
+        ocrPromessa = null;
+        encerra(falha, new Error("sem acesso ao motor de leitura"));
+        return;
+      }
+      const tag = document.createElement("script");
+      tag.src = OCR_CDN[i++];
+      tag.async = true;
+      tag.onload = () => {
+        if (window.Tesseract) {
+          clearTimeout(relogio);
+          encerra(ok, window.Tesseract);
+        } else tentar();
+      };
+      tag.onerror = tentar;
+      document.head.appendChild(tag);
+    };
+    tentar();
+  });
+  return ocrPromessa;
+};
+
+
+
+/* ───────── interface do extrator ───────── */
+const $ = (id) => document.getElementById(id);
+let blocos = [];
+let fila = [];
+
+const CAMPOS = [
+  ["nome", "Nome"],
+  ["idade", "Idade"],
+  ["local", "Localização"],
+  ["altura", "Altura"],
+  ["trabalho", "Trabalho"],
+  ["fumo", "Fuma"],
+  ["busca", "Procura"],
+];
+
+const aviso = (txt, erro) => {
+  const el = $("aviso");
+  el.textContent = txt || "";
+  el.className = erro ? "aviso erro" : "aviso";
+};
+
+const atual = () => (blocos.length ? lerPerfil(blocos) : null);
+
+const pintar = () => {
+  const d = atual();
+  $("prints").textContent = blocos.length
+    ? blocos.length + (blocos.length > 1 ? " prints lidos" : " print lido")
+    : "nenhum print ainda";
+  $("guardar").disabled = !d;
+  $("limpar").disabled = !blocos.length;
+
+  const alvo = $("campos");
+  alvo.innerHTML = "";
+  if (!d) {
+    alvo.innerHTML = '<p class="vazio">Escolha os prints do perfil para começar.</p>';
+  } else {
+    CAMPOS.forEach(([k, rot]) => {
+      const linha = document.createElement("label");
+      linha.className = "campo";
+      linha.innerHTML =
+        '<span>' + rot + '</span><input data-k="' + k + '" value="' +
+        String(d[k] || "").replace(/"/g, "&quot;") + '">';
+      alvo.appendChild(linha);
+    });
+    if (d.tags.length) {
+      const t = document.createElement("div");
+      t.className = "tags";
+      t.innerHTML = d.tags.map((x) => "<span>" + x + "</span>").join("");
+      alvo.appendChild(t);
+    }
+    ["personalidade", "notas"].forEach((k) => {
+      if (!d[k]) return;
+      const c = document.createElement("label");
+      c.className = "campo bloco";
+      c.innerHTML =
+        '<span>' + (k === "notas" ? "Notas" : "Personalidade") +
+        '</span><textarea rows="3" data-k="' + k + '">' + d[k] + "</textarea>";
+      alvo.appendChild(c);
+    });
+  }
+
+  $("fila").textContent = fila.length
+    ? fila.length + (fila.length > 1 ? " perfis na fila" : " perfil na fila")
+    : "";
+  ["enviar", "copiar", "baixar"].forEach((b) => ($(b).disabled = !fila.length));
+};
+
+const colhido = () => {
+  const d = atual();
+  if (!d) return null;
+  const saida = Object.assign({}, d);
+  document.querySelectorAll("[data-k]").forEach((el) => {
+    saida[el.getAttribute("data-k")] = el.value;
+  });
+  return saida;
+};
+
+$("arquivos").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  if (!files.length) return;
+  $("escolher").disabled = true;
+  aviso("preparando o leitor…");
+  let motor;
+  try {
+    motor = await carregarOCR();
+  } catch (err) {
+    aviso("Não consegui carregar o leitor (" + (err && err.message) + "). Use o campo de colar.", true);
+    $("escolher").disabled = false;
+    return;
+  }
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const r = await motor.recognize(files[i], "eng", {
+        logger: (m) => {
+          if (m && m.status === "recognizing text")
+            aviso("lendo print " + (i + 1) + " de " + files.length + " · " +
+              Math.round((m.progress || 0) * 100) + "%");
+        },
+      });
+      const t = ((r && r.data && r.data.text) || "").trim();
+      if (t) blocos.push(t);
+    } catch (err) {
+      /* um print ruim não derruba os outros */
+    }
+  }
+  aviso(blocos.length ? "" : "Não saiu texto desses prints.", !blocos.length);
+  $("escolher").disabled = false;
+  pintar();
+});
+
+$("escolher").addEventListener("click", () => $("arquivos").click());
+
+$("colar").addEventListener("click", async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (t && t.trim()) {
+      blocos.push(t);
+      aviso("");
+      pintar();
+    } else aviso("A área de transferência está vazia.", true);
+  } catch {
+    aviso("O navegador não liberou a colagem. Use a caixa abaixo.", true);
+  }
+});
+
+$("addtexto").addEventListener("click", () => {
+  const t = $("texto").value;
+  if (!t.trim()) return;
+  blocos.push(t);
+  $("texto").value = "";
+  aviso("");
+  pintar();
+});
+
+$("limpar").addEventListener("click", () => {
+  blocos = [];
+  aviso("");
+  pintar();
+});
+
+$("guardar").addEventListener("click", () => {
+  const d = colhido();
+  if (!d) return;
+  fila.push(d);
+  blocos = [];
+  aviso("perfil guardado na fila");
+  pintar();
+});
+
+$("zerarfila").addEventListener("click", () => {
+  fila = [];
+  pintar();
+});
+
+const montarLink = () => {
+  const base = ($("destino").value || "").trim();
+  const carga = encodeURIComponent(JSON.stringify(fila));
+  return (base ? base.replace(/#.*$/, "") : "") + "#cartoes=" + carga;
+};
+
+$("copiar").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(montarLink());
+    aviso("link copiado");
+  } catch {
+    aviso("Não consegui copiar. Segure no campo do link e copie à mão.", true);
+  }
+  $("link").value = montarLink();
+});
+
+$("enviar").addEventListener("click", async () => {
+  const url = montarLink();
+  $("link").value = url;
+  try {
+    if (navigator.share) await navigator.share({ title: "Perfis para o Meg", text: url });
+    else aviso("Este navegador não tem compartilhamento. Use copiar.", true);
+  } catch {
+    /* usuário cancelou */
+  }
+});
+
+$("baixar").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(fila, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "perfis-" + new Date().toISOString().slice(0, 10) + ".json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+/* o endereço do Meg fica guardado entre usos */
+const CHAVE_DESTINO = "meg:destino";
+try {
+  $("destino").value = localStorage.getItem(CHAVE_DESTINO) || "";
+} catch {}
+$("destino").addEventListener("change", () => {
+  try {
+    localStorage.setItem(CHAVE_DESTINO, $("destino").value.trim());
+  } catch {}
+});
+
+pintar();
+
+</script>
+</body>
+</html>
