@@ -34,6 +34,9 @@ textarea{resize:vertical;}
 .conta{font-size:11px;color:var(--suave);margin:9px 0 0;}
 .dica{font-size:11.5px;color:rgba(251,247,238,.5);line-height:1.55;margin:0 0 14px;}
 hr{border:none;border-top:1px solid var(--regua);margin:14px 0;}
+.fotolinha{align-items:center;}
+.fotoprev{width:44px;height:44px;border-radius:5px;object-fit:cover;border:1px solid var(--regua);}
+.caixa .dica{margin:0 0 10px;color:var(--suave);}
 </style>
 </head>
 <body>
@@ -41,7 +44,7 @@ hr{border:none;border-top:1px solid var(--regua);margin:14px 0;}
 <div class="raiz">
   <h1>Extrator</h1>
   <p class="sub">Android → Meg</p>
-  <p class="dica">Lê os prints do perfil aqui no Android e manda os dados prontos para o Meg no iPhone.</p>
+  <p class="dica">Lê os prints do perfil aqui no Android e manda os dados prontos (com foto) para o Meg no iPhone.</p>
 
   <div class="caixa">
     <span class="rot">1 · Prints do perfil</span>
@@ -63,23 +66,45 @@ hr{border:none;border-top:1px solid var(--regua);margin:14px 0;}
 
   <div class="caixa">
     <span class="rot">2 · Conferir e corrigir</span>
+    <div class="fileiras fotolinha">
+      <button id="escolherfoto" class="fraco">Escolher foto do perfil</button>
+      <button id="removerfoto" class="fraco">Remover foto</button>
+      <img id="fotoprev" class="fotoprev" hidden>
+      <input type="file" id="foto" accept="image/*">
+    </div>
+    <p class="aviso" id="fotoaviso"></p>
     <div id="campos"></div>
     <button id="guardar">Guardar na fila</button>
   </div>
 
   <div class="caixa">
     <span class="rot">3 · Mandar para o iPhone</span>
+    <p class="dica">Manda direto para a nuvem — o Meg confere sozinho ao abrir. Use o mesmo token e o mesmo id do Gist nos dois aparelhos.</p>
+    <label class="campo">
+      <span>Token do GitHub (Personal Access Token)</span>
+      <input type="password" id="ghtoken" placeholder="ghp_..." autocomplete="off">
+    </label>
+    <label class="campo">
+      <span>Id do Gist</span>
+      <input type="text" id="ghgist" placeholder="crie um gist secreto vazio e cole o id aqui">
+    </label>
+    <div class="fileiras">
+      <button id="enviarnuvem">Enviar para a nuvem</button>
+      <button id="zerarfila" class="fraco">Zerar fila</button>
+    </div>
+    <p class="conta" id="fila"></p>
+    <p class="aviso" id="nuvemaviso"></p>
+    <hr>
+    <p class="dica">Sem internet? Use o link local como alternativa (sem foto, por causa do tamanho).</p>
     <label class="campo">
       <span>Endereço do Meg no iPhone</span>
       <input type="text" id="destino" placeholder="https://seusite/meg/">
     </label>
     <div class="fileiras">
-      <button id="enviar">Compartilhar</button>
+      <button id="enviar" class="fraco">Compartilhar link</button>
       <button id="copiar" class="fraco">Copiar link</button>
       <button id="baixar" class="fraco">Baixar .json</button>
-      <button id="zerarfila" class="fraco">Zerar fila</button>
     </div>
-    <p class="conta" id="fila"></p>
     <label class="campo" style="margin-top:9px">
       <span>Link gerado</span>
       <textarea id="link" rows="2" readonly></textarea>
@@ -93,7 +118,27 @@ const RELOGIO = /(^|\s)\d{1,2}:\d{2}(\s|$)/g;
 const SO_SIMBOLO = /^[^\p{L}\p{N}]+$/u;
 const FIM_FRASE = /[.!?…:]$|\.\.\.$/;
 const PROMPT_FIM = /\.\.\.$|…$/;
-const FUMO_VOCAB = ["never", "rarely", "socially", "often", "sometimes", "yes", "no"];
+const FUMO_VOCAB = ["never", "rarely", "socially", "often", "sometimes", "occasionally", "yes", "no"];
+const RELIGIOES = ["christian","catholic","jewish","muslim","buddhist","hindu","atheist","agnostic",
+  "spiritual","mormon","sikh","protestant"];
+const GRAUS = /\b(grad school|graduate|master'?s|doctorate|phd|bachelor'?s|college|university|high school|trade school|associate|some college|in college)\b.*\bdegree\b|\b(grad school degree|high school degree|college degree|trade school|doctorate|master'?s degree|bachelor'?s degree|in college|some college)\b/i;
+const FILHOS = /\b(doesn'?t have kids|has kids|have kids|wants kids|open to kids|don'?t want kids|not sure about kids)\b/i;
+const ESCOLA = /\b([A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*)*\s+(?:University|College|Institute|Academy|School))\b/;
+
+/* fotografar a tela em vez de printar produz linhas que são só ruído */
+const pareceLixo = (l) => {
+  if (l.length < 3) return true;
+  const letras = (l.match(/[\p{L}\p{N}\s]/gu) || []).length;
+  if (letras / l.length < 0.7) return true;
+  const toks = l.split(/\s+/);
+  const soltos = toks.filter((t) => t.length === 1 && !/^[aeiouyáéíóúàâêôãõAEIOUYIÉ&]$/i.test(t)).length;
+  if (soltos >= 3 || soltos / toks.length > 0.34) return true;
+  /* caco de tela vira enxame de tokens curtíssimos */
+  const curtos = toks.filter((t) => t.length <= 2).length;
+  if (toks.length >= 4 && curtos / toks.length > 0.5) return true;
+  if (/[^\p{L}\p{N}\s]{3,}/u.test(l)) return true;
+  return false;
+};
 
 const LIXO_PERFIL = [
   /^see less\b/i,
@@ -148,7 +193,14 @@ const emendarBlocos = (blocos) => {
   const res = [];
   for (const l of out) {
     const k = chaveLinha(l);
-    if (!k || vistas.indexOf(k) >= 0) continue;
+    if (!k) continue;
+    /* os marcadores delimitam o bloco de interesses: repetidos, precisam sobreviver */
+    if (/^see (less|more)\b/i.test(l)) {
+      vistas.push("\u0000" + res.length);
+      res.push(l);
+      continue;
+    }
+    if (vistas.indexOf(k) >= 0) continue;
     if (k.split(" ").length >= 5) {
       if (vistas.some((v) => v.includes(k))) continue;
       const i = vistas.findIndex((v) => k.includes(v) && v.split(" ").length >= 5);
@@ -209,6 +261,12 @@ const lerPerfil = (blocos) => {
     altura: "",
     trabalho: "",
     fumo: "",
+    bebida: "",
+    filhos: "",
+    escolaridade: "",
+    faculdade: "",
+    religiao: "",
+    origem: "",
     busca: "",
     tags: [],
     personalidade: "",
@@ -216,7 +274,10 @@ const lerPerfil = (blocos) => {
   };
 
   /* interesses: tudo entre "See more about" e "See less" */
-  const iIni = linhas.findIndex((l) => /^see more about\b/i.test(l));
+  let iIni = linhas.findIndex((l) => /^see more about\b/i.test(l));
+  /* quando o perfil já vem expandido não existe "See more about": os interesses
+     ficam entre os dois "See less" */
+  if (iIni < 0) iIni = linhas.findIndex((l) => /^see less\b/i.test(l));
   const iFim = iIni < 0 ? -1 : linhas.findIndex((l, i) => i > iIni && /^see less\b/i.test(l));
   if (iIni >= 0 && iFim > iIni) {
     for (let i = iIni; i <= iFim; i++) {
@@ -232,60 +293,97 @@ const lerPerfil = (blocos) => {
     }
   }
 
+  /* os rótulos podem vir grudados em ícones lidos como letras, então nada é
+     ancorado no começo da linha e uma linha só pode alimentar vários campos */
+  const vozes = [];
   linhas.forEach((l, i) => {
     if (usada[i]) return;
+    let pegou = false;
+
     if (!out.nome) {
-      const m = l.match(/^([A-Za-zÀ-ÿ'’\-\.]{2,20}),\s*(\d{1,2})\b/);
-      if (m) {
-        out.nome = m[1];
-        out.idade = m[2];
-        marca(i);
-        return;
+      const m = l.match(/(^|\s)([A-Za-zÀ-ÿ'’\-\.]{2,20}),\s*(\d{2})\b/);
+      if (m && +m[3] >= 18 && +m[3] <= 89) {
+        out.nome = m[2];
+        out.idade = m[3];
+        pegou = true;
       }
     }
-    let m = l.match(/^Located in\s+(.+)$/i);
-    if (m) {
-      out.local = m[1].replace(/,\s*(California|CA)\s*$/i, "").trim();
-      marca(i);
-      return;
+
+    /* o rótulo tem que abrir a linha: até 5 caracteres de ícone mal lido antes dele */
+    let m = l.match(/Located in\s+([A-Za-zÀ-ÿ.'’\- ]{2,40})/i);
+    if (m && m.index <= 5 && !out.local) {
+      out.local = m[1].replace(/\s*(California|CA)\s*$/i, "").replace(/[,\s]+$/, "").trim();
+      pegou = true;
     }
-    if (/^\d\s*'\s*\d{0,2}\s*"?$/.test(l)) {
-      out.altura = l.replace(/\s+/g, " ");
-      marca(i);
-      return;
+
+    m = l.match(/\bFrom\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ.'’\- ]{2,40})/);
+    if (m && m.index <= 5 && !out.origem) {
+      out.origem = m[1].replace(/\s*(California|CA)\s*$/i, "").replace(/[,\s]+$/, "").trim();
+      pegou = true;
     }
-    m = l.match(/^Looking for\s+(.+)$/i);
-    if (m) {
-      out.busca = m[1].trim();
-      marca(i);
-      return;
+
+    m = l.match(/(\d)\s*'\s*(\d{1,2})?\s*"?/);
+    if (m && !out.altura && +m[1] >= 4 && +m[1] <= 7) {
+      out.altura = m[2] ? m[1] + "' " + m[2] + '"' : m[1] + "'";
+      pegou = true;
     }
+
+    m = l.match(/Looking for\s+([^|]{3,80})/i);
+    if (m && m.index <= 5 && !out.busca) {
+      out.busca = m[1].replace(/[,\s]+$/, "").trim();
+      pegou = true;
+    }
+
+    if (FILHOS.test(l) && !out.filhos) {
+      out.filhos = l.match(FILHOS)[0];
+      pegou = true;
+    }
+
+    if (GRAUS.test(l) && !out.escolaridade) {
+      out.escolaridade = l.match(GRAUS)[0];
+      pegou = true;
+    } else if (!out.faculdade) {
+      const e = l.match(ESCOLA);
+      if (e) {
+        out.faculdade = e[1];
+        pegou = true;
+      }
+    }
+
+    const rel = RELIGIOES.find((r) => new RegExp("(^|\\s)(also\\s+)?" + r + "\\s*$", "i").test(l));
+    if (rel && !out.religiao) {
+      out.religiao = rel.charAt(0).toUpperCase() + rel.slice(1);
+      pegou = true;
+    }
+
+    /* fuma e bebe usam o mesmo vocabulário; no Facebook o cigarro vem antes da taça */
     if (FUMO_VOCAB.includes(chaveLinha(l))) {
-      out.fumo = l;
-      marca(i);
-      return;
+      vozes.push(l);
+      pegou = true;
     }
-    m = l.match(/^Also\s+([A-ZÀ-Ý][a-zà-ÿ]+)$/);
-    if (m) {
-      if (!out.tags.includes(m[1])) out.tags.push(m[1]);
-      marca(i);
-      return;
-    }
-    if (LIXO_PERFIL.some((r) => r.test(l))) marca(i);
+
+    if (pegou || LIXO_PERFIL.some((r) => r.test(l))) marca(i);
   });
 
-  /* trabalho: a linha logo abaixo da altura */
-  const iAlt = linhas.findIndex((l) => /^\d\s*'\s*\d{0,2}\s*"?$/.test(l));
+  if (vozes[0]) out.fumo = vozes[0];
+  if (vozes[1]) out.bebida = vozes[1];
+
+  /* trabalho: sobra logo abaixo da altura, depois que todo o resto já foi reclamado */
+  const iAlt = linhas.findIndex((l) => /(\d)\s*'\s*(\d{1,2})?\s*"?/.test(l) && !/\d{3}/.test(l));
   if (iAlt >= 0) {
-    for (let i = iAlt + 1; i < linhas.length; i++) {
+    for (let i = iAlt + 1; i < linhas.length && i <= iAlt + 4; i++) {
       if (usada[i]) continue;
-      out.trabalho = linhas[i];
+      const l = linhas[i];
+      const maiusculas = (l.match(/\b[A-Z]{2,}\b/g) || []).length;
+      if (pareceLixo(l) || l.length > 90 || /^[a-zà-ÿ]/.test(l)) continue;
+      if (maiusculas > 1 || (l.split(/\s+/).length > 6 && !/ at /.test(l))) continue;
+      out.trabalho = l;
       marca(i);
       break;
     }
   }
   if (!out.trabalho) {
-    const i = linhas.findIndex((l, j) => !usada[j] && / at /.test(l) && l.length < 90);
+    const i = linhas.findIndex((l, j) => !usada[j] && / at /.test(l) && l.length < 90 && !pareceLixo(l));
     if (i >= 0) {
       out.trabalho = linhas[i];
       marca(i);
@@ -305,8 +403,16 @@ const lerPerfil = (blocos) => {
   out.personalidade = prompts.join("\n");
 
   /* o que sobrou com corpo de frase vira nota */
+  const jaVi = [];
   out.notas = linhas
-    .filter((l, i) => !usada[i] && l.length >= 15 && !PROMPT_FIM.test(l))
+    .filter((l, i) => {
+      if (usada[i] || l.length < 15 || PROMPT_FIM.test(l) || pareceLixo(l)) return false;
+      /* OCR repete a mesma frase com erros diferentes; comparo só o começo */
+      const ini = chaveLinha(l).slice(0, 30);
+      if (jaVi.includes(ini)) return false;
+      jaVi.push(ini);
+      return true;
+    })
     .join("\n");
 
   return out;
@@ -367,14 +473,22 @@ const carregarOCR = () => {
 const $ = (id) => document.getElementById(id);
 let blocos = [];
 let fila = [];
+let fotoAtual = "";
+const GIST_ARQUIVO = "perfis-meg.json";
 
 const CAMPOS = [
   ["nome", "Nome"],
   ["idade", "Idade"],
   ["local", "Localização"],
+  ["origem", "É de"],
   ["altura", "Altura"],
   ["trabalho", "Trabalho"],
+  ["escolaridade", "Escolaridade"],
+  ["faculdade", "Faculdade"],
   ["fumo", "Fuma"],
+  ["bebida", "Bebe"],
+  ["filhos", "Filhos"],
+  ["religiao", "Religião"],
   ["busca", "Procura"],
 ];
 
@@ -383,6 +497,36 @@ const aviso = (txt, erro) => {
   el.textContent = txt || "";
   el.className = erro ? "aviso erro" : "aviso";
 };
+
+const avisoNuvem = (txt, erro) => {
+  const el = $("nuvemaviso");
+  el.textContent = txt || "";
+  el.className = erro ? "aviso erro" : "aviso";
+};
+
+/* comprime a foto escolhida para caber tranquilo num Gist */
+const comprimirFoto = (arquivo, ladoMax, qualidade) =>
+  new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onerror = () => reject(new Error("falha ao ler o arquivo"));
+    leitor.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("arquivo não é uma imagem válida"));
+      img.onload = () => {
+        const escala = Math.min(1, (ladoMax || 480) / Math.max(img.width, img.height));
+        const w = Math.round(img.width * escala);
+        const h = Math.round(img.height * escala);
+        const tela = document.createElement("canvas");
+        tela.width = w;
+        tela.height = h;
+        const ctx = tela.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(tela.toDataURL("image/jpeg", qualidade || 0.62));
+      };
+      img.src = leitor.result;
+    };
+    leitor.readAsDataURL(arquivo);
+  });
 
 const atual = () => (blocos.length ? lerPerfil(blocos) : null);
 
@@ -424,10 +568,19 @@ const pintar = () => {
     });
   }
 
+  const prev = $("fotoprev");
+  if (fotoAtual) {
+    prev.src = fotoAtual;
+    prev.hidden = false;
+  } else {
+    prev.hidden = true;
+  }
+  $("removerfoto").disabled = !fotoAtual;
+
   $("fila").textContent = fila.length
     ? fila.length + (fila.length > 1 ? " perfis na fila" : " perfil na fila")
     : "";
-  ["enviar", "copiar", "baixar"].forEach((b) => ($(b).disabled = !fila.length));
+  ["enviar", "copiar", "baixar", "enviarnuvem"].forEach((b) => ($(b).disabled = !fila.length));
 };
 
 const colhido = () => {
@@ -437,6 +590,7 @@ const colhido = () => {
   document.querySelectorAll("[data-k]").forEach((el) => {
     saida[el.getAttribute("data-k")] = el.value;
   });
+  saida.foto = fotoAtual;
   return saida;
 };
 
@@ -476,6 +630,28 @@ $("arquivos").addEventListener("change", async (e) => {
 
 $("escolher").addEventListener("click", () => $("arquivos").click());
 
+$("escolherfoto").addEventListener("click", () => $("foto").click());
+
+$("foto").addEventListener("change", async (e) => {
+  const arquivo = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!arquivo) return;
+  try {
+    $("fotoaviso").textContent = "";
+    $("fotoaviso").className = "aviso";
+    fotoAtual = await comprimirFoto(arquivo);
+    pintar();
+  } catch (err) {
+    $("fotoaviso").textContent = (err && err.message) || "não consegui usar essa foto";
+    $("fotoaviso").className = "aviso erro";
+  }
+});
+
+$("removerfoto").addEventListener("click", () => {
+  fotoAtual = "";
+  pintar();
+});
+
 $("colar").addEventListener("click", async () => {
   try {
     const t = await navigator.clipboard.readText();
@@ -509,6 +685,7 @@ $("guardar").addEventListener("click", () => {
   if (!d) return;
   fila.push(d);
   blocos = [];
+  fotoAtual = "";
   aviso("perfil guardado na fila");
   pintar();
 });
@@ -520,14 +697,16 @@ $("zerarfila").addEventListener("click", () => {
 
 const montarLink = () => {
   const base = ($("destino").value || "").trim();
-  const carga = encodeURIComponent(JSON.stringify(fila));
+  /* o link local não carrega foto: o payload estouraria o limite de tamanho da URL */
+  const semFoto = fila.map((c) => Object.assign({}, c, { foto: undefined }));
+  const carga = encodeURIComponent(JSON.stringify(semFoto));
   return (base ? base.replace(/#.*$/, "") : "") + "#cartoes=" + carga;
 };
 
 $("copiar").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(montarLink());
-    aviso("link copiado");
+    aviso("link copiado (sem foto)");
   } catch {
     aviso("Não consegui copiar. Segure no campo do link e copie à mão.", true);
   }
@@ -554,14 +733,83 @@ $("baixar").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
 
-/* o endereço do Meg fica guardado entre usos */
+/* ───────── nuvem: manda a fila (com foto) para o Gist que o Meg confere ───────── */
+const buscarGist = async (token, gistId) => {
+  const r = await fetch("https://api.github.com/gists/" + gistId, {
+    headers: { Authorization: "token " + token, Accept: "application/vnd.github+json" },
+  });
+  if (!r.ok) throw new Error(r.status === 404 ? "gist não encontrado" : "erro " + r.status);
+  const j = await r.json();
+  const arq = j.files && j.files[GIST_ARQUIVO];
+  if (!arq || !arq.content) return [];
+  try {
+    const v = JSON.parse(arq.content);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
+
+const gravarGist = async (token, gistId, lista) => {
+  const r = await fetch("https://api.github.com/gists/" + gistId, {
+    method: "PATCH",
+    headers: {
+      Authorization: "token " + token,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ files: { [GIST_ARQUIVO]: { content: JSON.stringify(lista) } } }),
+  });
+  if (!r.ok) throw new Error("erro " + r.status + " ao gravar no gist");
+};
+
+$("enviarnuvem").addEventListener("click", async () => {
+  const token = ($("ghtoken").value || "").trim();
+  const gistId = ($("ghgist").value || "").trim();
+  if (!token || !gistId) {
+    avisoNuvem("preencha o token e o id do gist", true);
+    return;
+  }
+  $("enviarnuvem").disabled = true;
+  avisoNuvem("enviando…");
+  try {
+    /* soma com o que já estiver pendente no gist, caso o iPhone ainda não tenha sincronizado */
+    const pendente = await buscarGist(token, gistId);
+    await gravarGist(token, gistId, pendente.concat(fila));
+    avisoNuvem(
+      fila.length + (fila.length > 1 ? " perfis enviados" : " perfil enviado") +
+        " · o Meg importa sozinho ao abrir"
+    );
+    fila = [];
+    pintar();
+  } catch (err) {
+    avisoNuvem((err && err.message) || "falha ao enviar", true);
+  }
+  $("enviarnuvem").disabled = !fila.length;
+});
+
+/* endereço do Meg, token e id do gist ficam guardados entre usos */
 const CHAVE_DESTINO = "meg:destino";
+const CHAVE_TOKEN = "meg:ghtoken";
+const CHAVE_GIST = "meg:ghgist";
 try {
   $("destino").value = localStorage.getItem(CHAVE_DESTINO) || "";
+  $("ghtoken").value = localStorage.getItem(CHAVE_TOKEN) || "";
+  $("ghgist").value = localStorage.getItem(CHAVE_GIST) || "";
 } catch {}
 $("destino").addEventListener("change", () => {
   try {
     localStorage.setItem(CHAVE_DESTINO, $("destino").value.trim());
+  } catch {}
+});
+$("ghtoken").addEventListener("change", () => {
+  try {
+    localStorage.setItem(CHAVE_TOKEN, $("ghtoken").value.trim());
+  } catch {}
+});
+$("ghgist").addEventListener("change", () => {
+  try {
+    localStorage.setItem(CHAVE_GIST, $("ghgist").value.trim());
   } catch {}
 });
 

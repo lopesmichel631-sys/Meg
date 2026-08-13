@@ -912,7 +912,7 @@ exports.useSyncExternalStore = function (
 exports.useTransition = function () {
   return ReactSharedInternals.H.useTransition();
 };
-exports.version = "19.2.5";
+exports.version = "19.2.8";
 
 });
 __def("react-dom", function(module, exports, require){
@@ -1125,7 +1125,7 @@ exports.useFormState = function (action, initialState, permalink) {
 exports.useFormStatus = function () {
   return ReactSharedInternals.H.useHostTransitionStatus();
 };
-exports.version = "19.2.5";
+exports.version = "19.2.8";
 
 });
 __def("react-dom-client", function(module, exports, require){
@@ -17047,14 +17047,14 @@ ReactDOMHydrationRoot.prototype.unstable_scheduleHydration = function (target) {
 };
 var isomorphicReactPackageVersion$jscomp$inline_1840 = React.version;
 if (
-  "19.2.5" !==
+  "19.2.8" !==
   isomorphicReactPackageVersion$jscomp$inline_1840
 )
   throw Error(
     formatProdErrorMessage(
       527,
       isomorphicReactPackageVersion$jscomp$inline_1840,
-      "19.2.5"
+      "19.2.8"
     )
   );
 ReactDOMSharedInternals.findDOMNode = function (componentOrElement) {
@@ -17076,10 +17076,10 @@ ReactDOMSharedInternals.findDOMNode = function (componentOrElement) {
 };
 var internals$jscomp$inline_2347 = {
   bundleType: 0,
-  version: "19.2.5",
+  version: "19.2.8",
   rendererPackageName: "react-dom",
   currentDispatcherRef: ReactSharedInternals,
-  reconcilerVersion: "19.2.5"
+  reconcilerVersion: "19.2.8"
 };
 if ("undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__) {
   var hook$jscomp$inline_2348 = __REACT_DEVTOOLS_GLOBAL_HOOK__;
@@ -17177,7 +17177,7 @@ exports.hydrateRoot = function (container, initialChildren, options) {
   listenToAllSupportedEvents(container);
   return new ReactDOMHydrationRoot(initialChildren);
 };
-exports.version = "19.2.5";
+exports.version = "19.2.8";
 
 });
 __def("app", function(module, exports, require){
@@ -17312,10 +17312,66 @@ const ehRacaBase = (r) => RACAS.some((b) => b.toLowerCase() === String(r || "").
 const STORE_KEY = "baralho:v1";
 const CIDADE_PADRAO = "Santa Ana";
 const VARS = ["nome", "raca", "idade", "local", "distancia", "distanciakm"];
+/* ── sincronização por GitHub Gist: Extrator (Android) -> Meg (iPhone) ── */
+const CHAVE_GH_TOKEN = "meg:ghtoken";
+const CHAVE_GH_GIST = "meg:ghgist";
+const GIST_ARQUIVO = "perfis-meg.json";
+const buscarGist = async (token, gistId) => {
+    const r = await fetch("https://api.github.com/gists/" + gistId, {
+        headers: { Authorization: "token " + token, Accept: "application/vnd.github+json" },
+    });
+    if (!r.ok)
+        throw new Error(r.status === 404 ? "gist não encontrado" : "erro " + r.status);
+    const j = await r.json();
+    const arq = j.files && j.files[GIST_ARQUIVO];
+    if (!arq || !arq.content)
+        return [];
+    try {
+        const v = JSON.parse(arq.content);
+        return Array.isArray(v) ? v : [];
+    }
+    catch {
+        return [];
+    }
+};
+const limparGist = async (token, gistId) => {
+    await fetch("https://api.github.com/gists/" + gistId, {
+        method: "PATCH",
+        headers: {
+            Authorization: "token " + token,
+            Accept: "application/vnd.github+json",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ files: { [GIST_ARQUIVO]: { content: "[]" } } }),
+    });
+};
+/* ── comprime uma foto escolhida para caber tranquilo num Gist ── */
+const comprimirFoto = (arquivo, ladoMax = 480, qualidade = 0.62) => new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onerror = () => reject(new Error("falha ao ler o arquivo"));
+    leitor.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("arquivo não é uma imagem válida"));
+        img.onload = () => {
+            const escala = Math.min(1, ladoMax / Math.max(img.width, img.height));
+            const w = Math.round(img.width * escala);
+            const h = Math.round(img.height * escala);
+            const tela = document.createElement("canvas");
+            tela.width = w;
+            tela.height = h;
+            const ctx = tela.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(tela.toDataURL("image/jpeg", qualidade));
+        };
+        img.src = leitor.result;
+    };
+    leitor.readAsDataURL(arquivo);
+});
 const blankCard = () => ({
     id: uid(),
     criadoEm: Date.now(),
     farol: "",
+    foto: "",
     nome: "",
     raca: "",
     idade: "",
@@ -17325,6 +17381,12 @@ const blankCard = () => ({
     altura: "",
     trabalho: "",
     fumo: "",
+    bebida: "",
+    filhos: "",
+    escolaridade: "",
+    faculdade: "",
+    religiao: "",
+    origem: "",
     busca: "",
     tags: [],
     notas: "",
@@ -17882,7 +17944,31 @@ const RELOGIO = /(^|\s)\d{1,2}:\d{2}(\s|$)/g;
 const SO_SIMBOLO = /^[^\p{L}\p{N}]+$/u;
 const FIM_FRASE = /[.!?…:]$|\.\.\.$/;
 const PROMPT_FIM = /\.\.\.$|…$/;
-const FUMO_VOCAB = ["never", "rarely", "socially", "often", "sometimes", "yes", "no"];
+const FUMO_VOCAB = ["never", "rarely", "socially", "often", "sometimes", "occasionally", "yes", "no"];
+const RELIGIOES = ["christian", "catholic", "jewish", "muslim", "buddhist", "hindu", "atheist", "agnostic",
+    "spiritual", "mormon", "sikh", "protestant"];
+const GRAUS = /\b(grad school|graduate|master'?s|doctorate|phd|bachelor'?s|college|university|high school|trade school|associate|some college|in college)\b.*\bdegree\b|\b(grad school degree|high school degree|college degree|trade school|doctorate|master'?s degree|bachelor'?s degree|in college|some college)\b/i;
+const FILHOS = /\b(doesn'?t have kids|has kids|have kids|wants kids|open to kids|don'?t want kids|not sure about kids)\b/i;
+const ESCOLA = /\b([A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*)*\s+(?:University|College|Institute|Academy|School))\b/;
+/* fotografar a tela em vez de printar produz linhas que são só ruído */
+const pareceLixo = (l) => {
+    if (l.length < 3)
+        return true;
+    const letras = (l.match(/[\p{L}\p{N}\s]/gu) || []).length;
+    if (letras / l.length < 0.7)
+        return true;
+    const toks = l.split(/\s+/);
+    const soltos = toks.filter((t) => t.length === 1 && !/^[aeiouyáéíóúàâêôãõAEIOUYIÉ&]$/i.test(t)).length;
+    if (soltos >= 3 || soltos / toks.length > 0.34)
+        return true;
+    /* caco de tela vira enxame de tokens curtíssimos */
+    const curtos = toks.filter((t) => t.length <= 2).length;
+    if (toks.length >= 4 && curtos / toks.length > 0.5)
+        return true;
+    if (/[^\p{L}\p{N}\s]{3,}/u.test(l))
+        return true;
+    return false;
+};
 const LIXO_PERFIL = [
     /^see less\b/i,
     /^see more$/i,
@@ -17932,7 +18018,15 @@ const emendarBlocos = (blocos) => {
     const res = [];
     for (const l of out) {
         const k = chaveLinha(l);
-        if (!k || vistas.indexOf(k) >= 0)
+        if (!k)
+            continue;
+        /* os marcadores delimitam o bloco de interesses: repetidos, precisam sobreviver */
+        if (/^see (less|more)\b/i.test(l)) {
+            vistas.push("\u0000" + res.length);
+            res.push(l);
+            continue;
+        }
+        if (vistas.indexOf(k) >= 0)
             continue;
         if (k.split(" ").length >= 5) {
             if (vistas.some((v) => v.includes(k)))
@@ -17989,13 +18083,23 @@ const lerPerfil = (blocos) => {
         altura: "",
         trabalho: "",
         fumo: "",
+        bebida: "",
+        filhos: "",
+        escolaridade: "",
+        faculdade: "",
+        religiao: "",
+        origem: "",
         busca: "",
         tags: [],
         personalidade: "",
         notas: "",
     };
     /* interesses: tudo entre "See more about" e "See less" */
-    const iIni = linhas.findIndex((l) => /^see more about\b/i.test(l));
+    let iIni = linhas.findIndex((l) => /^see more about\b/i.test(l));
+    /* quando o perfil já vem expandido não existe "See more about": os interesses
+       ficam entre os dois "See less" */
+    if (iIni < 0)
+        iIni = linhas.findIndex((l) => /^see less\b/i.test(l));
     const iFim = iIni < 0 ? -1 : linhas.findIndex((l, i) => i > iIni && /^see less\b/i.test(l));
     if (iIni >= 0 && iFim > iIni) {
         for (let i = iIni; i <= iFim; i++) {
@@ -18012,63 +18116,93 @@ const lerPerfil = (blocos) => {
             });
         }
     }
+    /* os rótulos podem vir grudados em ícones lidos como letras, então nada é
+       ancorado no começo da linha e uma linha só pode alimentar vários campos */
+    const vozes = [];
     linhas.forEach((l, i) => {
         if (usada[i])
             return;
+        let pegou = false;
         if (!out.nome) {
-            const m = l.match(/^([A-Za-zÀ-ÿ'’\-\.]{2,20}),\s*(\d{1,2})\b/);
-            if (m) {
-                out.nome = m[1];
-                out.idade = m[2];
-                marca(i);
-                return;
+            const m = l.match(/(^|\s)([A-Za-zÀ-ÿ'’\-\.]{2,20}),\s*(\d{2})\b/);
+            if (m && +m[3] >= 18 && +m[3] <= 89) {
+                out.nome = m[2];
+                out.idade = m[3];
+                pegou = true;
             }
         }
-        let m = l.match(/^Located in\s+(.+)$/i);
-        if (m) {
-            out.local = m[1].replace(/,\s*(California|CA)\s*$/i, "").trim();
-            marca(i);
-            return;
+        /* o rótulo tem que abrir a linha: até 5 caracteres de ícone mal lido antes dele */
+        let m = l.match(/Located in\s+([A-Za-zÀ-ÿ.'’\- ]{2,40})/i);
+        if (m && m.index <= 5 && !out.local) {
+            out.local = m[1].replace(/\s*(California|CA)\s*$/i, "").replace(/[,\s]+$/, "").trim();
+            pegou = true;
         }
-        if (/^\d\s*'\s*\d{0,2}\s*"?$/.test(l)) {
-            out.altura = l.replace(/\s+/g, " ");
-            marca(i);
-            return;
+        m = l.match(/\bFrom\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ.'’\- ]{2,40})/);
+        if (m && m.index <= 5 && !out.origem) {
+            out.origem = m[1].replace(/\s*(California|CA)\s*$/i, "").replace(/[,\s]+$/, "").trim();
+            pegou = true;
         }
-        m = l.match(/^Looking for\s+(.+)$/i);
-        if (m) {
-            out.busca = m[1].trim();
-            marca(i);
-            return;
+        m = l.match(/(\d)\s*'\s*(\d{1,2})?\s*"?/);
+        if (m && !out.altura && +m[1] >= 4 && +m[1] <= 7) {
+            out.altura = m[2] ? m[1] + "' " + m[2] + '"' : m[1] + "'";
+            pegou = true;
         }
+        m = l.match(/Looking for\s+([^|]{3,80})/i);
+        if (m && m.index <= 5 && !out.busca) {
+            out.busca = m[1].replace(/[,\s]+$/, "").trim();
+            pegou = true;
+        }
+        if (FILHOS.test(l) && !out.filhos) {
+            out.filhos = l.match(FILHOS)[0];
+            pegou = true;
+        }
+        if (GRAUS.test(l) && !out.escolaridade) {
+            out.escolaridade = l.match(GRAUS)[0];
+            pegou = true;
+        }
+        else if (!out.faculdade) {
+            const e = l.match(ESCOLA);
+            if (e) {
+                out.faculdade = e[1];
+                pegou = true;
+            }
+        }
+        const rel = RELIGIOES.find((r) => new RegExp("(^|\\s)(also\\s+)?" + r + "\\s*$", "i").test(l));
+        if (rel && !out.religiao) {
+            out.religiao = rel.charAt(0).toUpperCase() + rel.slice(1);
+            pegou = true;
+        }
+        /* fuma e bebe usam o mesmo vocabulário; no Facebook o cigarro vem antes da taça */
         if (FUMO_VOCAB.includes(chaveLinha(l))) {
-            out.fumo = l;
-            marca(i);
-            return;
+            vozes.push(l);
+            pegou = true;
         }
-        m = l.match(/^Also\s+([A-ZÀ-Ý][a-zà-ÿ]+)$/);
-        if (m) {
-            if (!out.tags.includes(m[1]))
-                out.tags.push(m[1]);
-            marca(i);
-            return;
-        }
-        if (LIXO_PERFIL.some((r) => r.test(l)))
+        if (pegou || LIXO_PERFIL.some((r) => r.test(l)))
             marca(i);
     });
-    /* trabalho: a linha logo abaixo da altura */
-    const iAlt = linhas.findIndex((l) => /^\d\s*'\s*\d{0,2}\s*"?$/.test(l));
+    if (vozes[0])
+        out.fumo = vozes[0];
+    if (vozes[1])
+        out.bebida = vozes[1];
+    /* trabalho: sobra logo abaixo da altura, depois que todo o resto já foi reclamado */
+    const iAlt = linhas.findIndex((l) => /(\d)\s*'\s*(\d{1,2})?\s*"?/.test(l) && !/\d{3}/.test(l));
     if (iAlt >= 0) {
-        for (let i = iAlt + 1; i < linhas.length; i++) {
+        for (let i = iAlt + 1; i < linhas.length && i <= iAlt + 4; i++) {
             if (usada[i])
                 continue;
-            out.trabalho = linhas[i];
+            const l = linhas[i];
+            const maiusculas = (l.match(/\b[A-Z]{2,}\b/g) || []).length;
+            if (pareceLixo(l) || l.length > 90 || /^[a-zà-ÿ]/.test(l))
+                continue;
+            if (maiusculas > 1 || (l.split(/\s+/).length > 6 && !/ at /.test(l)))
+                continue;
+            out.trabalho = l;
             marca(i);
             break;
         }
     }
     if (!out.trabalho) {
-        const i = linhas.findIndex((l, j) => !usada[j] && / at /.test(l) && l.length < 90);
+        const i = linhas.findIndex((l, j) => !usada[j] && / at /.test(l) && l.length < 90 && !pareceLixo(l));
         if (i >= 0) {
             out.trabalho = linhas[i];
             marca(i);
@@ -18088,8 +18222,18 @@ const lerPerfil = (blocos) => {
     });
     out.personalidade = prompts.join("\n");
     /* o que sobrou com corpo de frase vira nota */
+    const jaVi = [];
     out.notas = linhas
-        .filter((l, i) => !usada[i] && l.length >= 15 && !PROMPT_FIM.test(l))
+        .filter((l, i) => {
+        if (usada[i] || l.length < 15 || PROMPT_FIM.test(l) || pareceLixo(l))
+            return false;
+        /* OCR repete a mesma frase com erros diferentes; comparo só o começo */
+        const ini = chaveLinha(l).slice(0, 30);
+        if (jaVi.includes(ini))
+            return false;
+        jaVi.push(ini);
+        return true;
+    })
         .join("\n");
     return out;
 };
@@ -18403,6 +18547,46 @@ function BaralhoDeContatos() {
         bruto.forEach((d) => criarDePerfil(d));
         setTela("baralho");
     }, [loaded]);
+    /* ── perfis (com foto) chegando pela nuvem: Extrator do Android -> Gist -> Meg ── */
+    const [nuvemStatus, setNuvemStatus] = (0, react_1.useState)("");
+    const [nuvemAberta, setNuvemAberta] = (0, react_1.useState)(false);
+    const sincronizarNuvem = async (manual) => {
+        let token = "", gistId = "";
+        try {
+            token = window.localStorage.getItem(CHAVE_GH_TOKEN) || "";
+            gistId = window.localStorage.getItem(CHAVE_GH_GIST) || "";
+        }
+        catch { }
+        if (!token || !gistId) {
+            if (manual)
+                setNuvemStatus("preencha o token e o id do gist");
+            return;
+        }
+        setNuvemStatus("verificando…");
+        try {
+            const novos = await buscarGist(token, gistId);
+            if (novos.length) {
+                novos.forEach((d) => criarDePerfil(d));
+                await limparGist(token, gistId);
+                setTela("baralho");
+                setNuvemStatus(novos.length + (novos.length > 1 ? " perfis importados" : " perfil importado") +
+                    " · " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+            }
+            else {
+                setNuvemStatus("nada novo · " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+            }
+        }
+        catch (e) {
+            setNuvemStatus("falhou: " + (e && e.message ? e.message : "erro"));
+        }
+    };
+    const nuvemChecada = (0, react_1.useRef)(false);
+    (0, react_1.useEffect)(() => {
+        if (!loaded || nuvemChecada.current)
+            return;
+        nuvemChecada.current = true;
+        sincronizarNuvem(false);
+    }, [loaded]);
     (0, react_1.useEffect)(() => {
         if (!loaded)
             return;
@@ -18492,10 +18676,17 @@ function BaralhoDeContatos() {
         Object.assign(c, {
             nome: dados.nome || "",
             idade: dados.idade || "",
+            foto: dados.foto || "",
             local: k ? CIDADES[k] : dados.local || "",
             altura: dados.altura || "",
             trabalho: dados.trabalho || "",
             fumo: dados.fumo || "",
+            bebida: dados.bebida || "",
+            filhos: dados.filhos || "",
+            escolaridade: dados.escolaridade || "",
+            faculdade: dados.faculdade || "",
+            religiao: dados.religiao || "",
+            origem: dados.origem || "",
             busca: dados.busca || "",
             tags: dados.tags || [],
             personalidade: dados.personalidade || "",
@@ -18626,9 +18817,13 @@ function BaralhoDeContatos() {
                                     new Date(salvoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
                                 : "salvo"),
                     react_1.default.createElement("div", { className: "bc-backup" },
+                        react_1.default.createElement("button", { className: "bc-link", onClick: () => setNuvemAberta(true) },
+                            "\u2601 Nuvem",
+                            nuvemStatus ? " · " + nuvemStatus : ""),
                         react_1.default.createElement("button", { className: "bc-link", onClick: exportar }, "Exportar"),
                         react_1.default.createElement("button", { className: "bc-link", onClick: () => fileRef.current && fileRef.current.click() }, "Importar"),
                         react_1.default.createElement("input", { ref: fileRef, type: "file", accept: "application/json", className: "bc-file", onChange: importar, "aria-label": "Importar backup" }))))),
+        nuvemAberta && (react_1.default.createElement(ModalNuvem, { status: nuvemStatus, onVerificar: () => sincronizarNuvem(true), onFechar: () => setNuvemAberta(false) })),
         !loaded ? (react_1.default.createElement("p", { className: "bc-empty" }, "Abrindo o baralho\u2026")) : tela === "baralho" ? (react_1.default.createElement(TelaBaralho, { cards: cards, sources: sources, novaId: novaId, medir: medir, onNova: novaCarta, onImportarPerfil: criarDePerfil, onPatch: patch, onPatchDating: patchDating, onRemove: removerCarta, onLancar: lancar, onRemoverLancamento: removerLancamento, onRegistrarDating: registrarDating, onRegistrarFC: registrarFC, onRemoverFC: removerFC, acoes: acoes, onCriarAcao: criarAcao, onRemoverAcao: removerAcao, valorHoraPadrao: valorHoraPadrao, onValorHoraPadrao: setValorHoraPadrao, botoesInvest: botoesInvest, onCriarBotaoInvest: criarBotaoInvest, onRemoverBotaoInvest: removerBotaoInvest, onCriarCategoria: criarCategoria, onRemoverCategoria: removerCategoria })) : tela === "objetivos" ? (react_1.default.createElement(TelaObjetivos, { objetivos: objetivos, onAdd: addObjetivo, onMarcar: marcarObjetivo, onRemover: removerObjetivo })) : tela === "fcskill" ? (react_1.default.createElement(TelaFCSkill, { cards: cards, acoes: acoes, onCriarAcao: criarAcao, onRemoverAcao: removerAcao, desbloqueios: desbloqueios, conhecimento: conhecimento, onAddDesbloqueio: addDesbloqueio, onMarcarDesbloqueio: marcarDesbloqueio, onRemoverDesbloqueio: removerDesbloqueio, onAddConhecimento: addConhecimento, onRemoverConhecimento: removerConhecimento, onRemoverFC: removerFC })) : tela === "razao" ? (react_1.default.createElement(TelaRazao, { cards: cards, conhecimento: conhecimento, desbloqueios: desbloqueios, onRemoverFC: removerFC })) : (react_1.default.createElement(TelaMensagens, { cards: cards, sources: sources, msgs: msgs, setMsgs: setMsgs, medir: medir, onRegistrarEnvio: registrarEnvio }))));
 }
 /* ── tela 1: baralho ───────────────────────────────────── */
@@ -18864,9 +19059,15 @@ function LeitorPerfil({ onFechar, onCriar }) {
         ["nome", "Nome"],
         ["idade", "Idade"],
         ["local", "Localização"],
+        ["origem", "É de"],
         ["altura", "Altura"],
         ["trabalho", "Trabalho"],
+        ["escolaridade", "Escolaridade"],
+        ["faculdade", "Faculdade"],
         ["fumo", "Fuma"],
+        ["bebida", "Bebe"],
+        ["filhos", "Filhos"],
+        ["religiao", "Religião"],
         ["busca", "Procura"],
     ];
     return (react_1.default.createElement("div", { className: "bc-modal", role: "dialog", "aria-label": "Ler perfil" },
@@ -18908,6 +19109,55 @@ function LeitorPerfil({ onFechar, onCriar }) {
                 react_1.default.createElement("button", { className: "bc-new", onClick: () => onCriar(lido), disabled: vazio }, "Criar carta"),
                 react_1.default.createElement("button", { className: "bc-link", onClick: onFechar }, "Cancelar")))));
 }
+/* ── nuvem: liga o Meg a um Gist privado onde o Extrator do Android deixa os perfis ── */
+function ModalNuvem({ status, onVerificar, onFechar }) {
+    const [token, setToken] = (0, react_1.useState)("");
+    const [gistId, setGistId] = (0, react_1.useState)("");
+    const [carregado, setCarregado] = (0, react_1.useState)(false);
+    (0, react_1.useEffect)(() => {
+        try {
+            setToken(window.localStorage.getItem(CHAVE_GH_TOKEN) || "");
+            setGistId(window.localStorage.getItem(CHAVE_GH_GIST) || "");
+        }
+        catch { }
+        setCarregado(true);
+    }, []);
+    const salvarToken = (v) => {
+        setToken(v);
+        try {
+            window.localStorage.setItem(CHAVE_GH_TOKEN, v.trim());
+        }
+        catch { }
+    };
+    const salvarGistId = (v) => {
+        setGistId(v);
+        try {
+            window.localStorage.setItem(CHAVE_GH_GIST, v.trim());
+        }
+        catch { }
+    };
+    return (react_1.default.createElement("div", { className: "bc-modal", role: "dialog", "aria-label": "Nuvem" },
+        react_1.default.createElement("div", { className: "bc-modalbox" },
+            react_1.default.createElement("div", { className: "bc-modalhead" },
+                react_1.default.createElement("div", null,
+                    react_1.default.createElement("p", { className: "bc-modaleyebrow" }, "Nuvem"),
+                    react_1.default.createElement("h3", { className: "bc-modaltitulo" }, "Perfis do Android")),
+                react_1.default.createElement("button", { className: "bc-modalx", onClick: onFechar, "aria-label": "Fechar" }, "\u00D7")),
+            react_1.default.createElement("div", { className: "bc-modalbody" },
+                react_1.default.createElement("section", { className: "bc-nextbloco" },
+                    react_1.default.createElement("p", { className: "bc-mini bc-leitordica" }, "O Extrator no Android grava os perfis extra\u00EDdos (com foto) num Gist privado do GitHub. O Meg confere esse Gist sozinho toda vez que voc\u00EA abre o app, e tamb\u00E9m quando voc\u00EA aperta \"Verificar agora\". Use o mesmo token e o mesmo id do Gist nos dois aparelhos."),
+                    react_1.default.createElement("label", { className: "campo" },
+                        react_1.default.createElement("span", { className: "bc-lbl" }, "Token do GitHub (Personal Access Token)"),
+                        react_1.default.createElement("input", { className: "bc-msgtext", style: { marginTop: 4 }, type: "password", value: carregado ? token : "", onChange: (e) => salvarToken(e.target.value), placeholder: "ghp_...", "aria-label": "Token do GitHub", autoComplete: "off" })),
+                    react_1.default.createElement("label", { className: "campo", style: { marginTop: 10 } },
+                        react_1.default.createElement("span", { className: "bc-lbl" }, "Id do Gist"),
+                        react_1.default.createElement("input", { className: "bc-msgtext", style: { marginTop: 4 }, value: carregado ? gistId : "", onChange: (e) => salvarGistId(e.target.value), placeholder: "crie um gist secreto vazio e cole o id daqui", "aria-label": "Id do Gist", autoComplete: "off" })),
+                    react_1.default.createElement("div", { className: "bc-bancoacoes", style: { marginTop: 12 } },
+                        react_1.default.createElement("button", { className: "bc-feito", onClick: onVerificar }, "Verificar agora"),
+                        status && react_1.default.createElement("span", { className: "bc-mini" }, status)))),
+            react_1.default.createElement("div", { className: "bc-modalpe" },
+                react_1.default.createElement("button", { className: "bc-link", onClick: onFechar }, "Fechar")))));
+}
 /* ── semáforo do contato ───────────────────────────────── */
 function Semaforo({ valor, onEscolher }) {
     return (react_1.default.createElement("div", { className: "bc-semaforo", role: "group", "aria-label": "Situa\u00E7\u00E3o do contato" }, FAROIS.map(([chave, rotulo, cor, dica]) => {
@@ -18920,6 +19170,7 @@ function Linha({ carta, sources, onAbrir }) {
     const i = sources.indexOf(carta.fonte);
     return (react_1.default.createElement("button", { className: "bc-linhacarta", onClick: onAbrir },
         react_1.default.createElement("span", { className: "bc-lc-topo" },
+            carta.foto && react_1.default.createElement("img", { className: "bc-lc-foto", src: carta.foto, alt: "" }),
             react_1.default.createElement("span", { className: i >= 0 && glyphIsRed(i) ? "bc-lc-naipe bc-g-red" : "bc-lc-naipe" }, i >= 0 ? glyphFor(i) : "·"),
             react_1.default.createElement("span", { className: "bc-lc-nome" }, carta.nome.trim() || "sem nome"),
             farolDe(carta.farol) && (react_1.default.createElement("span", { className: "bc-lc-farol", style: { background: farolDe(carta.farol)[2] }, title: farolDe(carta.farol)[3] }))),
@@ -19057,6 +19308,23 @@ function Carta({ carta, sources, nova, medida, onFechar, onPatch, onPatchDating,
     const [datingSalvo, setDatingSalvo] = (0, react_1.useState)(false);
     const [outraRaca, setOutraRaca] = (0, react_1.useState)(false);
     const [novaTag, setNovaTag] = (0, react_1.useState)("");
+    const [verFoto, setVerFoto] = (0, react_1.useState)(false);
+    const [fotoErro, setFotoErro] = (0, react_1.useState)("");
+    const fotoRef = (0, react_1.useRef)(null);
+    const trocarFoto = async (e) => {
+        const arquivo = e.target.files && e.target.files[0];
+        e.target.value = "";
+        if (!arquivo)
+            return;
+        try {
+            setFotoErro("");
+            const dataUrl = await comprimirFoto(arquivo);
+            onPatch("foto", dataUrl);
+        }
+        catch (err) {
+            setFotoErro((err && err.message) || "não consegui usar essa foto");
+        }
+    };
     const temDating = CAMPOS_DATING.some(([k]) => ((carta.dating || {})[k] || "").trim());
     const registrarDating = () => {
         if (!temDating)
@@ -19096,6 +19364,13 @@ function Carta({ carta, sources, nova, medida, onFechar, onPatch, onPatchDating,
                 react_1.default.createElement("button", { className: "bc-recolher", onClick: onFechar, "aria-label": "Recolher carta" }, "recolher \u25B2"),
                 react_1.default.createElement(Semaforo, { valor: carta.farol, onEscolher: (v) => onPatch("farol", v) })),
             react_1.default.createElement("div", { className: "bc-body" },
+                react_1.default.createElement("div", { className: "bc-foto-wrap" },
+                    react_1.default.createElement("button", { type: "button", className: "bc-foto", onClick: () => (carta.foto ? setVerFoto(true) : fotoRef.current && fotoRef.current.click()), "aria-label": carta.foto ? "Ver foto" : "Adicionar foto" }, carta.foto ? (react_1.default.createElement("img", { className: "bc-foto-img", src: carta.foto, alt: "" })) : (react_1.default.createElement("span", { className: "bc-foto-placeholder" }, "\u25C9 foto"))),
+                    react_1.default.createElement("div", { className: "bc-foto-acoes" },
+                        react_1.default.createElement("button", { className: "bc-link", onClick: () => fotoRef.current && fotoRef.current.click() }, carta.foto ? "trocar foto" : "adicionar foto"),
+                        carta.foto && (react_1.default.createElement("button", { className: "bc-link", onClick: () => onPatch("foto", "") }, "remover"))),
+                    fotoErro && react_1.default.createElement("p", { className: "bc-ocrstatus bc-ocrstatus-erro" }, fotoErro),
+                    react_1.default.createElement("input", { ref: fotoRef, type: "file", accept: "image/*", className: "bc-file", onChange: trocarFoto, "aria-label": "Escolher foto do perfil" })),
                 react_1.default.createElement("label", { className: "bc-nome-wrap" },
                     react_1.default.createElement("span", { className: "bc-lbl" }, "Nome"),
                     react_1.default.createElement("input", { className: "bc-nome", value: carta.nome, onChange: (e) => onPatch("nome", e.target.value) })),
@@ -19116,8 +19391,16 @@ function Carta({ carta, sources, nova, medida, onFechar, onPatch, onPatchDating,
                     react_1.default.createElement(Distancia, { m: medida })),
                 react_1.default.createElement("div", { className: "bc-row" },
                     react_1.default.createElement(Campo, { label: "Altura", value: carta.altura || "", onChange: (v) => onPatch("altura", v), grow: 1 }),
-                    react_1.default.createElement(Campo, { label: "Fuma", value: carta.fumo || "", onChange: (v) => onPatch("fumo", v), grow: 1 })),
+                    react_1.default.createElement(Campo, { label: "Fuma", value: carta.fumo || "", onChange: (v) => onPatch("fumo", v), grow: 1 }),
+                    react_1.default.createElement(Campo, { label: "Bebe", value: carta.bebida || "", onChange: (v) => onPatch("bebida", v), grow: 1 })),
                 react_1.default.createElement(Campo, { label: "Trabalho", value: carta.trabalho || "", onChange: (v) => onPatch("trabalho", v) }),
+                react_1.default.createElement("div", { className: "bc-row" },
+                    react_1.default.createElement(Campo, { label: "Escolaridade", value: carta.escolaridade || "", onChange: (v) => onPatch("escolaridade", v), grow: 2 }),
+                    react_1.default.createElement(Campo, { label: "Religi\u00E3o", value: carta.religiao || "", onChange: (v) => onPatch("religiao", v), grow: 1 })),
+                react_1.default.createElement(Campo, { label: "Faculdade", value: carta.faculdade || "", onChange: (v) => onPatch("faculdade", v) }),
+                react_1.default.createElement("div", { className: "bc-row" },
+                    react_1.default.createElement(Campo, { label: "Filhos", value: carta.filhos || "", onChange: (v) => onPatch("filhos", v), grow: 2 }),
+                    react_1.default.createElement(Campo, { label: "\u00C9 de", value: carta.origem || "", onChange: (v) => onPatch("origem", v), grow: 1, lista: "bc-cidades" })),
                 react_1.default.createElement(Campo, { label: "Procura", value: carta.busca || "", onChange: (v) => onPatch("busca", v) }),
                 react_1.default.createElement("div", { className: "bc-group" },
                     react_1.default.createElement("span", { className: "bc-lbl" }, "Interesses"),
@@ -19185,7 +19468,10 @@ function Carta({ carta, sources, nova, medida, onFechar, onPatch, onPatchDating,
                         carta.criadoEm ? fmtData(carta.criadoEm) : "—"),
                     react_1.default.createElement("button", { className: confirma ? "bc-remover bc-remover-on" : "bc-remover", onClick: () => (confirma ? onRemove() : setConfirma(true)), onBlur: () => setConfirma(false) }, confirma ? "confirmar remoção" : "remover carta")))),
         fcAberto && (react_1.default.createElement(PainelFC, { carta: carta, acoes: acoes, onCriarAcao: onCriarAcao, onRemoverAcao: onRemoverAcao, onFechar: () => setFcAberto(false), onRegistrar: onRegistrarFC, onRemover: onRemoverFC })),
-        nextAberto && (react_1.default.createElement(PainelNext, { carta: carta, acoes: acoes, onPatch: onPatch, onFechar: () => setNextAberto(false) }))));
+        nextAberto && (react_1.default.createElement(PainelNext, { carta: carta, acoes: acoes, onPatch: onPatch, onFechar: () => setNextAberto(false) })),
+        verFoto && carta.foto && (react_1.default.createElement("div", { className: "bc-fotoview", role: "dialog", "aria-label": "Foto", onClick: () => setVerFoto(false) },
+            react_1.default.createElement("img", { src: carta.foto, alt: "", onClick: (e) => e.stopPropagation() }),
+            react_1.default.createElement("button", { className: "bc-modalx bc-fotoview-x", onClick: () => setVerFoto(false), "aria-label": "Fechar" }, "\u00D7")))));
 }
 /* ── painel Next Date ──────────────────────────────────── */
 function PainelNext({ carta, acoes = [], onPatch, onFechar }) {
@@ -19795,6 +20081,7 @@ const CSS = `
   transition:transform .14s ease,box-shadow .14s ease;}
 .bc-linhacarta:hover{transform:translateY(-2px);box-shadow:0 12px 22px rgba(0,0,0,.4);}
 .bc-lc-topo{display:flex;align-items:baseline;gap:7px;width:100%;min-width:0;}
+.bc-lc-foto{width:26px;height:26px;border-radius:5px;object-fit:cover;flex:0 0 auto;align-self:center;}
 .bc-lc-naipe{font-size:13px;color:var(--ink);flex-shrink:0;}
 .bc-lc-nome{font-family:'Bodoni Moda',serif;font-size:19px;font-weight:600;line-height:1.15;
   min-width:0;overflow-wrap:anywhere;}
@@ -20055,6 +20342,18 @@ const CSS = `
 
 .bc-body{display:flex;flex-direction:column;gap:13px;padding:6px 8px 14px;}
 .bc-lbl{display:block;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--soft);margin-bottom:3px;}
+
+.bc-foto-wrap{display:flex;align-items:center;gap:12px;}
+.bc-foto{flex:0 0 auto;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1px solid var(--rule);
+  background:rgba(21,16,15,.04);padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.bc-foto-img{width:100%;height:100%;object-fit:cover;display:block;}
+.bc-foto-placeholder{font-size:10px;letter-spacing:.08em;color:var(--soft);}
+.bc-foto-acoes{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
+.bc-fotoview{position:fixed;inset:0;z-index:80;background:rgba(8,6,5,.92);display:flex;
+  align-items:center;justify-content:center;padding:24px;cursor:zoom-out;}
+.bc-fotoview img{max-width:100%;max-height:100%;border-radius:6px;cursor:default;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.bc-fotoview-x{position:fixed;top:18px;right:18px;color:var(--card);font-size:22px;}
 .bc-nome{width:100%;font-family:'Bodoni Moda',serif;font-size:25px;font-weight:600;color:var(--ink);
   background:transparent;border:none;border-bottom:1px solid var(--rule);padding:2px 0 5px;}
 .bc-row{display:flex;gap:12px;}
