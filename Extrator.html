@@ -504,7 +504,7 @@ const avisoNuvem = (txt, erro) => {
   el.className = erro ? "aviso erro" : "aviso";
 };
 
-/* comprime a foto escolhida para caber tranquilo num Gist */
+/* comprime a foto escolhida para caber tranquilo num Gist (usado só quando o R2 não está configurado) */
 const comprimirFoto = (arquivo, ladoMax, qualidade) =>
   new Promise((resolve, reject) => {
     const leitor = new FileReader();
@@ -527,6 +527,76 @@ const comprimirFoto = (arquivo, ladoMax, qualidade) =>
     };
     leitor.readAsDataURL(arquivo);
   });
+
+/* ───────── upload de mídia (Cloudflare R2, Worker compartilhado com o resto do conjunto Cherubion) ───────── */
+const CHAVE_R2_URL = "cherubion:r2workerurl";
+const CHAVE_R2_TOKEN = "cherubion:r2token";
+
+const lerConfigR2 = () => {
+  try {
+    return {
+      url: (window.localStorage.getItem(CHAVE_R2_URL) || "").replace(/\/+$/, ""),
+      token: window.localStorage.getItem(CHAVE_R2_TOKEN) || "",
+    };
+  } catch (e) {
+    return { url: "", token: "" };
+  }
+};
+
+/* reduz para no máx. 1280px de largura, JPEG 75% antes de subir pro R2 */
+const comprimirImagemParaUpload = (file) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX_LARGURA = 1280;
+      let width = img.width, height = img.height;
+      if (width > MAX_LARGURA) {
+        height = Math.round(height * (MAX_LARGURA / width));
+        width = MAX_LARGURA;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(objUrl);
+          if (blob) resolve(blob);
+          else reject(new Error("falha ao comprimir a imagem"));
+        },
+        "image/jpeg",
+        0.75
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objUrl);
+      reject(new Error("falha ao carregar a imagem"));
+    };
+    img.src = objUrl;
+  });
+
+const subirArquivoParaR2 = async (blob, nomeOriginal) => {
+  const { url, token } = lerConfigR2();
+  if (!url || !token) throw new Error("sem-config");
+  const ext =
+    (String(nomeOriginal || "").split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) ||
+    "bin";
+  const nomeArquivo = Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+  const resp = await fetch(url + "/upload", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": blob.type || "application/octet-stream",
+      "X-Filename": nomeArquivo,
+    },
+    body: blob,
+  });
+  if (!resp.ok) throw new Error("upload falhou (" + resp.status + ")");
+  const dados = await resp.json();
+  if (!dados || !dados.url) throw new Error("resposta do Worker sem url");
+  return dados.url;
+};
 
 const atual = () => (blocos.length ? lerPerfil(blocos) : null);
 
@@ -636,10 +706,18 @@ $("foto").addEventListener("change", async (e) => {
   const arquivo = e.target.files && e.target.files[0];
   e.target.value = "";
   if (!arquivo) return;
+  $("fotoaviso").textContent = "";
+  $("fotoaviso").className = "aviso";
   try {
-    $("fotoaviso").textContent = "";
-    $("fotoaviso").className = "aviso";
-    fotoAtual = await comprimirFoto(arquivo);
+    const { url, token } = lerConfigR2();
+    if (url && token) {
+      $("fotoaviso").textContent = "enviando foto…";
+      const blob = await comprimirImagemParaUpload(arquivo);
+      fotoAtual = await subirArquivoParaR2(blob, arquivo.name);
+      $("fotoaviso").textContent = "";
+    } else {
+      fotoAtual = await comprimirFoto(arquivo);
+    }
     pintar();
   } catch (err) {
     $("fotoaviso").textContent = (err && err.message) || "não consegui usar essa foto";
