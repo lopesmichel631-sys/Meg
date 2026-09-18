@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Operacional DTC 2026 — Camisetas Print-on-Demand</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Alpine.js -->
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<!-- Font Awesome Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Google Fonts (Inter) -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body { font-family: 'Inter', sans-serif; }
+[x-cloak] { display: none !important; }
+/* Custom scrollbar for clean UI */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col md:flex-row" x-data="appData()">
+<!-- SIDEBAR NAVIGATION -->
+<aside class="w-full md:w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col justify-between border-r border-slate-800">
+<div>
+<!-- Logo / Brand Header -->
+<div class="p-5 border-b border-slate-800 flex items-center justify-between">
+<div>
+<span class="text-xs font-semibold tracking-wider text-emerald-400 uppercase">SISTEMA OPERACIONAL</span>
+<h1 class="text-lg font-bold text-white leading-tight">DTC SoCal 2026</h1>
+</div>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800">
+POD
+</span>
+</div>
+<!-- Navigation Links -->
+<nav class="p-3 space-y-1">
+<button @click="activeTab = 'dashboard'" :class="activeTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+<i class="fa-solid fa-chart-line w-5 text-center"></i>
+<span>Visão Geral & Metas</span>
+</button>
+<button @click="activeTab = 'financials'" :class="activeTab === 'financials' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+<i class="fa-solid fa-calculator w-5 text-center"></i>
+<span>Simulador & Margens</span>
+</button>
+<button @click="activeTab = 'roadmap'" :class="activeTab === 'roadmap' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+<i class="fa-solid fa-list-check w-5 text-center"></i>
+<span>Checklist 16 Semanas</span>
+</button>
+<button @click="activeTab = 'budget'" :class="activeTab === 'budget' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+<i class="fa-solid fa-wallet w-5 text-center"></i>
+<span>Alocação dos US$ 1.000</span>
+</button>
+<button @click="activeTab = 'tech'" :class="activeTab === 'tech' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+<i class="fa-solid fa-code w-5 text-center"></i>
+<span>APIs & Módulos Dev</span>
+</button>
+<button @click="activeTab = 'audit'" :class="activeTab === 'audit' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+<i class="fa-solid fa-database w-5 text-center"></i>
+<span>Auditoria de Dados</span>
+</button>
+</nav>
+</div>
+<!-- Footer Info -->
+<div class="p-4 border-t border-slate-800 text-xs text-slate-500">
+<p><strong class="text-slate-400">Localização:</strong> SoCal (Orange Co.)</p>
+<p><strong class="text-slate-400">Fulfillment:</strong> SwiftPOD / Awkward</p>
+<p class="mt-2 text-emerald-400"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Dados 2026 Integrados</p>
+</div>
+</aside>
+<!-- MAIN CONTENT AREA -->
+<main class="flex-1 overflow-y-auto min-h-screen pb-12">
+<!-- TOP HEADER BAR -->
+<header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div>
+<h2 class="text-xl font-bold text-slate-900" x-text="tabTitles[activeTab]"></h2>
+<p class="text-xs text-slate-500 mt-0.5" x-text="tabSubtitles[activeTab]"></p>
+</div>
+<div class="flex items-center space-x-3">
+<span class="px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-full text-xs font-medium">
+Meta Líquida: US$ 4.000/mês
+</span>
+<span class="px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full text-xs font-medium">
+Prazo: 16 Semanas
+</span>
+</div>
+</header>
+<!-- CONTENT PANELS -->
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+<!-- TAB 1: DASHBOARD / VISÃO GERAL -->
+<div x-show="activeTab === 'dashboard'" x-cloak class="space-y-6">
+<!-- Quick KPI Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="text-xs font-medium text-slate-500 uppercase">Meta Lucro Líquido</span>
+<div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm"><i class="fa-solid fa-dollar-sign"></i></div>
+</div>
+<div class="mt-2 text-2xl font-bold text-slate-900">US$ 4.000<span class="text-xs font-normal text-slate-500">/mês</span></div>
+<p class="mt-1 text-xs text-emerald-600 font-medium"><i class="fa-solid fa-arrow-up text-[10px]"></i> 100% via Canais Orgânicos</p>
+</div>
+<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="text-xs font-medium text-slate-500 uppercase">Volume Necessário</span>
+<div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm"><i class="fa-solid fa-shirt"></i></div>
+</div>
+<div class="mt-2 text-2xl font-bold text-slate-900">~162 <span class="text-sm font-normal text-slate-500">unid/mês</span></div>
+<p class="mt-1 text-xs text-slate-500 font-medium">Aprox. 5,4 camisetas/dia (TikTok Shop)</p>
+</div>
+<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="text-xs font-medium text-slate-500 uppercase">Margem/Unidade</span>
+<div class="p-2 bg-blue-50 text-blue-600 rounded-lg text-sm"><i class="fa-solid fa-chart-pie"></i></div>
+</div>
+<div class="mt-2 text-2xl font-bold text-slate-900">US$ 24,73</div>
+<p class="mt-1 text-xs text-slate-500 font-medium">TikTok Orgânico @ Preço US$ 42,00</p>
+</div>
+<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="text-xs font-medium text-slate-500 uppercase">Capital de Giro</span>
+<div class="p-2 bg-amber-50 text-amber-600 rounded-lg text-sm"><i class="fa-solid fa-coins"></i></div>
+</div>
+<div class="mt-2 text-2xl font-bold text-slate-900">US$ 1.000</div>
+<p class="mt-1 text-xs text-amber-700 font-medium">US$ 415 Fixo | US$ 585 Condicional</p>
+</div>
+</div>
+<!-- Strategic Summary Cards -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Motor Principal -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<div class="flex items-center space-x-3">
+<div class="p-3 bg-black text-white rounded-lg"><i class="fa-brands fa-tiktok text-xl"></i></div>
+<div>
+<h3 class="font-bold text-slate-900">Motor 1: TikTok Shop + Afiliados</h3>
+<span class="text-xs text-emerald-600 font-semibold uppercase">Estratégia Principal (Orgânica)</span>
+</div>
+</div>
+<p class="text-sm text-slate-600 leading-relaxed">
+Explora seu background de alta costura e storytelling. Fulfillment próprio de POD é 100% permitido (regra revertida em 2026). Taxa de conversão de <strong class="text-slate-800">4,7%</strong>.
+</p>
+<ul class="text-xs space-y-2 text-slate-600 border-t border-slate-100 pt-3">
+<li class="flex items-center"><i class="fa-solid fa-check text-emerald-500 mr-2"></i> Meta: 1 a 3 vídeos de ateliê/bastidor por dia</li>
+<li class="flex items-center"><i class="fa-solid fa-check text-emerald-500 mr-2"></i> Seeding: 15–20 amostras enviadas/mês</li>
+<li class="flex items-center"><i class="fa-solid fa-check text-emerald-500 mr-2"></i> Comissão Padrão: 15% a 18% para criadores</li>
+</ul>
+</div>
+<!-- Motor Secundário -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<div class="flex items-center space-x-3">
+<div class="p-3 bg-orange-500 text-white rounded-lg"><i class="fa-brands fa-etsy text-xl"></i></div>
+<div>
+<h3 class="font-bold text-slate-900">Motor 2: Etsy + SEO de Listagem</h3>
+<span class="text-xs text-orange-600 font-semibold uppercase">Tráfego Comprador Passivo</span>
+</div>
+</div>
+<p class="text-sm text-slate-600 leading-relaxed">
+Aproveita o tráfego comprador existente na Etsy. Escala via automação de catálogo de programador sem risco de bloqueio.
+</p>
+<ul class="text-xs space-y-2 text-slate-600 border-t border-slate-100 pt-3">
+<li class="flex items-center"><i class="fa-solid fa-check text-emerald-500 mr-2"></i> Publicação gradual até 40+ listagens</li>
+<li class="flex items-center"><i class="fa-solid fa-check text-emerald-500 mr-2"></i> Manter faturamento < US$ 10k/ano para Opt-out de Offsite Ads</li>
+<li class="flex items-center"><i class="fa-solid fa-check text-emerald-500 mr-2"></i> Margem líquida estimada: US$ 22,63/unidade</li>
+</ul>
+</div>
+<!-- Ventos Logísticos (SoCal) -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<div class="flex items-center space-x-3">
+<div class="p-3 bg-indigo-600 text-white rounded-lg"><i class="fa-solid fa-truck-fast text-xl"></i></div>
+<div>
+<h3 class="font-bold text-slate-900">Vantagem Logística SoCal</h3>
+<span class="text-xs text-indigo-600 font-semibold uppercase">Fornecedores Locais na CA</span>
+</div>
+</div>
+<p class="text-sm text-slate-600 leading-relaxed">
+Despacho rápido preserva a pontuação de saúde no TikTok Shop (SLA < 2 dias úteis) e reduz devoluções.
+</p>
+<div class="border-t border-slate-100 pt-3 space-y-2 text-xs">
+<div class="p-2.5 bg-slate-50 rounded border border-slate-200">
+<strong class="text-slate-800">Awkward Styles:</strong> Santa Fe Springs (~32 km de Santa Ana). Despacho ultrarrápido local.
+</div>
+<div class="p-2.5 bg-slate-50 rounded border border-slate-200">
+<strong class="text-slate-800">SwiftPOD:</strong> San Jose, Califórnia. Backup oficial na Printify.
+</div>
+</div>
+</div>
+</div>
+<!-- Strategic Notice Banner -->
+<div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl text-amber-900 text-sm flex items-start space-x-3">
+<i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 text-lg"></i>
+<div>
+<strong class="font-semibold">Alerta de Inviabilidade de Mídia Paga no Início:</strong>
+No ROAS mediano de moda do Meta (2,18x), o lucro por camiseta cai para apenas US$ 6,72. Para atingir US$ 4.000 líquidos seriam necessários US$ 11.480/mês em anúncios — totalmente inviável para o capital de US$ 1.000. <span class="underline font-medium">Anúncios só devem ser ativados como amplificação com ROAS orgânico ≥ 3,0x.</span>
+</div>
+</div>
+</div>
+<!-- TAB 2: FINANCIAL SIMULATOR -->
+<div x-show="activeTab === 'financials'" x-cloak class="space-y-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Calculator Inputs -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<h3 class="font-bold text-slate-900 border-b border-slate-100 pb-3">Parâmetros do Produto (Ajustáveis)</h3>
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Preço de Venda (US$)</label>
+<input type="number" step="0.5" x-model.number="calc.retailPrice" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Custo-Base Bella+Canvas 3001 (US$)</label>
+<input type="number" step="0.1" x-model.number="calc.baseCost" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+<span class="text-[11px] text-slate-500">SwiftPOD/Awkward Styles Free (~US$ 10,00)</span>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Frete Doméstico Printify (US$)</label>
+<input type="number" step="0.05" x-model.number="calc.shipping" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Taxa TikTok Shop (%)</label>
+<input type="number" step="0.5" x-model.number="calc.tiktokFeePercent" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+<span class="text-[11px] text-slate-500">6% Padrão (3% promocional no mês 1)</span>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Comissão de Afiliado (%)</label>
+<input type="number" step="1" x-model.number="calc.affiliateCommissionPercent" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+</div>
+<div class="pt-2">
+<button @click="resetCalc()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors">
+Restaurar Valores Padrão do Relatório
+</button>
+</div>
+</div>
+<!-- Dynamic Results & Target Volume -->
+<div class="lg:col-span-2 space-y-6">
+<!-- Unit Math Breakdown Card -->
+<div class="bg-indigo-900 text-white p-6 rounded-xl shadow-sm space-y-4">
+<h3 class="text-sm font-semibold text-indigo-200 uppercase tracking-wider">Resultado Unitário Simulador (TikTok Orgânico)</h3>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-indigo-800 pt-4">
+<div>
+<span class="text-xs text-indigo-300">Lucro Líquido / Venda</span>
+<div class="text-3xl font-extrabold text-emerald-400" x-text="'US$ ' + netProfitTikTokOrganic().toFixed(2)"></div>
+</div>
+<div>
+<span class="text-xs text-indigo-300">Meta Mensal ($4.000)</span>
+<div class="text-3xl font-extrabold text-white" x-text="unitsNeededTikTokOrganic() + ' camisetas'"></div>
+</div>
+<div>
+<span class="text-xs text-indigo-300">Meta Diária</span>
+<div class="text-3xl font-extrabold text-amber-300" x-text="(unitsNeededTikTokOrganic() / 30).toFixed(1) + ' / dia'"></div>
+</div>
+</div>
+</div>
+<!-- Channel Comparison Matrix -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+<h3 class="font-bold text-slate-900 mb-4">Matriz de Margem de Contribuição por Canal</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs text-slate-600">
+<thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase">
+<tr>
+<th class="p-3">Canal de Venda</th>
+<th class="p-3">Taxas Plataforma</th>
+<th class="p-3">Comissão / Ads</th>
+<th class="p-3">Contribuição Líquida</th>
+<th class="p-3">Unid. p/ ￼
+￼
+￼
+￼
+￼
+￼
+￼ 2,52)</td>
+<td class="p-3 text-slate-500">US$ 0,00</td>
+<td class="p-3 font-bold text-emerald-600">US$ 24,73</td>
+<td class="p-3 font-semibold text-slate-800">162 unid.</td>
+</tr>
+<tr class="hover:bg-slate-50">
+<td class="p-3 font-semibold text-slate-800"><i class="fa-brands fa-tiktok text-black mr-1"></i> TikTok Shop (Afiliado)</td>
+<td class="p-3 text-slate-500">6% (US$ 2,52)</td>
+<td class="p-3 text-slate-500">15% (US$ 6,30)</td>
+<td class="p-3 font-bold text-emerald-600">US$ 18,43</td>
+<td class="p-3 font-semibold text-slate-800">217 unid.</td>
+</tr>
+<tr class="hover:bg-slate-50">
+<td class="p-3 font-semibold text-slate-800"><i class="fa-brands fa-shopify text-emerald-600 mr-1"></i> Loja Própria (Next.js/Shopify)</td>
+<td class="p-3 text-slate-500">~3% pgto (US$ 1,26)</td>
+<td class="p-3 text-slate-500">US$ 0,00</td>
+<td class="p-3 font-bold text-emerald-600">US$ 25,99</td>
+<td class="p-3 font-semibold text-slate-800">156 unid.</td>
+</tr>
+<tr class="hover:bg-slate-50">
+<td class="p-3 font-semibold text-slate-800"><i class="fa-brands fa-etsy text-orange-600 mr-1"></i> Etsy (Sem Offsite Ads)</td>
+<td class="p-3 text-slate-500">~11% (US$ 4,62)</td>
+<td class="p-3 text-slate-500">US$ 0,00</td>
+<td class="p-3 font-bold text-emerald-600">US$ 22,63</td>
+<td class="p-3 font-semibold text-slate-800">179 unid.</td>
+</tr>
+<tr class="hover:bg-slate-50 bg-rose-50/50">
+<td class="p-3 font-semibold text-slate-800"><i class="fa-brands fa-facebook text-blue-600 mr-1"></i> Meta Ads (ROAS 2,18x Mediano)</td>
+<td class="p-3 text-slate-500">~3% (US$ 1,26)</td>
+<td class="p-3 text-rose-600 font-medium">CAC US$ 19,27</td>
+<td class="p-3 font-bold text-rose-600">US$ 6,72</td>
+<td class="p-3 font-semibold text-rose-800">595 unid. ($11,4k ad)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB 3: CHECKLIST DE EXECUÇÃO (16 SEMANAS) -->
+<div x-show="activeTab === 'roadmap'" x-cloak class="space-y-6">
+<div class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200">
+<div>
+<h3 class="font-bold text-slate-900">Progresso do Plano de Execução</h3>
+<p class="text-xs text-slate-500">Marque as tarefas concluídas conforme avança nas semanas</p>
+</div>
+<div class="text-right">
+<span class="text-2xl font-black text-indigo-600" x-text="completedTasksPercentage() + '%'"></span>
+<span class="block text-[10px] text-slate-400 uppercase font-semibold">Concluído</span>
+</div>
+</div>
+<!-- Timeline / Checklist Weeks -->
+<div class="space-y-4">
+<template x-for="(phase, index) in checklist" :key="index">
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+<div class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
+<div class="flex items-center space-x-3">
+<span class="px-2.5 py-0.5 bg-indigo-100 text-indigo-800 font-bold text-xs rounded-full" x-text="phase.weeks"></span>
+<h4 class="font-bold text-slate-800 text-sm" x-text="phase.title"></h4>
+</div>
+<span class="text-xs font-semibold text-slate-500" x-text="'Meta: ' + phase.goal"></span>
+</div>
+<div class="p-5 space-y-3">
+<div class="space-y-2">
+<template x-for="(task, tIndex) in phase.tasks" :key="tIndex">
+<label class="flex items-start space-x-3 cursor-pointer group p-1 hover:bg-slate-50 rounded">
+<input type="checkbox" x-model="task.done" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+<span :class="task.done ? 'line-through text-slate-400' : 'text-slate-700'" class="text-xs leading-relaxed" x-text="task.text"></span>
+</label>
+</template>
+</div>
+<!-- Trigger Warning Box -->
+<div class="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start space-x-2 text-xs text-rose-800">
+<i class="fa-solid fa-bolt text-rose-500 mt-0.5"></i>
+<div>
+<strong>Gatilho de Correção:</strong> <span x-text="phase.trigger"></span>
+</div>
+</div>
+</div>
+</div>
+</template>
+</div>
+</div>
+<!-- TAB 4: ALOCAÇÃO DOS US$ 1.000 -->
+<div x-show="activeTab === 'budget'" x-cloak class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Fixo Obrigatório ($415) -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<div class="flex justify-between items-center border-b border-slate-100 pb-3">
+<div>
+<h3 class="font-bold text-slate-900">Bloco 1: Gastos Obrigatórios</h3>
+<p class="text-xs text-slate-500">Investimento inicial essencial</p>
+</div>
+<span class="text-xl font-bold text-slate-900">US$ 415</span>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-xs p-2.5 bg-slate-50 rounded">
+<div>
+<strong class="block text-slate-800">Amostras Próprias (QC + Shoot)</strong>
+<span class="text-slate-500">3–4 camisetas dos fornecedores da Califórnia</span>
+</div>
+<span class="font-bold text-slate-700">US$ 120</span>
+</div>
+<div class="flex justify-between items-center text-xs p-2.5 bg-slate-50 rounded">
+<div>
+<strong class="block text-slate-800">Seeding de Afiliados</strong>
+<span class="text-slate-500">15 amostras × ~US$ 15 (produto + frete)</span>
+</div>
+<span class="font-bold text-slate-700">US$ 225</span>
+</div>
+<div class="flex justify-between items-center text-xs p-2.5 bg-slate-50 rounded">
+<div>
+<strong class="block text-slate-800">Domínio Personalizado (.com)</strong>
+<span class="text-slate-500">Registro anual da marca</span>
+</div>
+<span class="font-bold text-slate-700">US$ 12</span>
+</div>
+<div class="flex justify-between items-center text-xs p-2.5 bg-slate-50 rounded">
+<div>
+<strong class="block text-slate-800">Listagens Etsy (40 SKUs)</strong>
+<span class="text-slate-500">40 × ￼
+￼
+￼ 10</span>
+</div>
+<div class="flex justify-between items-center text-xs p-2.5 bg-slate-50 rounded">
+<div>
+<strong class="block text-slate-800">Reserva de Conteúdo</strong>
+<span class="text-slate-500">Iluminação básica / props para vídeos</span>
+</div>
+<span class="font-bold text-slate-700">US$ 48</span>
+</div>
+</div>
+</div>
+<!-- Reinvestimento Condicionado ($585) -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<div class="flex justify-between items-center border-b border-slate-100 pb-3">
+<div>
+<h3 class="font-bold text-slate-900">Bloco 2: Reinvestimento Condicionado</h3>
+<p class="text-xs text-slate-500">Liberado SOMENTE após gatilhos numéricos</p>
+</div>
+<span class="text-xl font-bold text-indigo-600">US$ 585</span>
+</div>
+<div class="space-y-3">
+<div class="p-3 bg-amber-50 border border-amber-200 rounded text-xs space-y-1">
+<div class="flex justify-between font-bold text-amber-900">
+<span>Printify Premium Anual</span>
+<span>US$ 300</span>
+</div>
+<p class="text-amber-800"><strong>Gatilho:</strong> Liberar apenas quando atingir ~13–15 pedidos/mês (onde a economia de 20% supera os $24,99/mês).</p>
+</div>
+<div class="p-3 bg-amber-50 border border-amber-200 rounded text-xs space-y-1">
+<div class="flex justify-between font-bold text-amber-900">
+<span>Teste Amplificação Mídia Paga</span>
+<span>US$ 150</span>
+</div>
+<p class="text-amber-800"><strong>Gatilho:</strong> Somente após um criativo orgânico demonstrar ROAS ≥ 3,0x sustentado por 14 dias.</p>
+</div>
+<div class="p-3 bg-amber-50 border border-amber-200 rounded text-xs space-y-1">
+<div class="flex justify-between font-bold text-amber-900">
+<span>Plano Shopify Basic (2 meses)</span>
+<span>US$ 80</span>
+</div>
+<p class="text-amber-800"><strong>Gatilho:</strong> Ativar quando a loja própria receber tráfego direto recorrente do TikTok/Etsy.</p>
+</div>
+<div class="p-3 bg-slate-50 border border-slate-200 rounded text-xs space-y-1">
+<div class="flex justify-between font-bold text-slate-800">
+<span>Reserva Contingência / Devoluções</span>
+<span>US$ 55</span>
+</div>
+<p class="text-slate-600">Reserva de segurança mantida em caixa.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB 5: APIS & ARQUITETURA DO APLICATIVO -->
+<div x-show="activeTab === 'tech'" x-cloak class="space-y-6">
+<!-- System Modules & Dev Hours -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<h3 class="font-bold text-slate-900 border-b border-slate-100 pb-3">Planejamento de Desenvolvimento do App (2–4h/dia)</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+<span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-bold text-[10px]">P1 — Prioridade Máxima</span>
+<h4 class="font-bold text-slate-800 text-sm">M1: Ingestão de Pedidos & Margem</h4>
+<p class="text-xs text-slate-600">Calcula lucro líquido por SKU e canal em tempo real.</p>
+<span class="block text-xs font-semibold text-slate-500">Estimativa: 12–16 horas</span>
+</div>
+<div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+<span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-bold text-[10px]">P1 — Prioridade Máxima</span>
+<h4 class="font-bold text-slate-800 text-sm">M2: Dashboard ROAS & Break-Even</h4>
+<p class="text-xs text-slate-600">Monitora CAC-teto e ponto de equilíbrio por canal.</p>
+<span class="block text-xs font-semibold text-slate-500">Estimativa: 10–14 horas</span>
+</div>
+<div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold text-[10px]">P2 — Médio Prazo</span>
+<h4 class="font-bold text-slate-800 text-sm">M3: Sync de Catálogo Printify</h4>
+<p class="text-xs text-slate-600">Sincronização via API REST de produtos e estoque.</p>
+<span class="block text-xs font-semibold text-slate-500">Estimativa: 12–20 horas</span>
+</div>
+<div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold text-[10px]">P2 — Médio Prazo</span>
+<h4 class="font-bold text-slate-800 text-sm">M4: CRM de Afiliados & Seeding</h4>
+<p class="text-xs text-slate-600">Acompanha amostras enviadas, GMV e comissões.</p>
+<span class="block text-xs font-semibold text-slate-500">Estimativa: 10–16 horas</span>
+</div>
+<div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+<span class="px-2 py-0.5 bg-slate-200 text-slate-800 rounded font-bold text-[10px]">P3 — Suplementar</span>
+<h4 class="font-bold text-slate-800 text-sm">M5: Motor de Alertas e SLAs</h4>
+<p class="text-xs text-slate-600">Alertas de margem < $15 e despacho atrasado TikTok.</p>
+<span class="block text-xs font-semibold text-slate-500">Estimativa: 8–12 horas</span>
+</div>
+<div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+<span class="px-2 py-0.5 bg-slate-200 text-slate-800 rounded font-bold text-[10px]">P3 — Condicional</span>
+<h4 class="font-bold text-slate-800 text-sm">M6: Storefront Next.js + Headless</h4>
+<p class="text-xs text-slate-600">Loja autoral headless para captura de e-mails.</p>
+<span class="block text-xs font-semibold text-slate-500">Estimativa: 20–30 horas</span>
+</div>
+</div>
+</div>
+<!-- API Specifications Table -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<h3 class="font-bold text-slate-900">Diretório de APIs & Regras de Automação</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs text-slate-600">
+<thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+<tr>
+<th class="p-3">Plataforma / API</th>
+<th class="p-3">Status de Automação</th>
+<th class="p-3">Limites & Especificações</th>
+<th class="p-3">Documentação Oficial</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr>
+<td class="p-3 font-semibold text-slate-800">Printify API</td>
+<td class="p-3"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-medium">Permitida</span></td>
+<td class="p-3">600 req/min global, 100 req/min catálogo, erro < 5%</td>
+<td class="p-3"><a href="https://developers.printify.com/" target="_blank" class="text-indigo-600 underline">developers.printify.com</a></td>
+</tr>
+<tr>
+<td class="p-3 font-semibold text-slate-800">Etsy Open API v3</td>
+<td class="p-3"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-medium">Permitida</span></td>
+<td class="p-3">OAuth2, gestão de listagens e pedidos em tempo real</td>
+<td class="p-3"><a href="https://developers.etsy.com/documentation/" target="_blank" class="text-indigo-600 underline">developers.etsy.com</a></td>
+</tr>
+<tr>
+<td class="p-3 font-semibold text-slate-800">TikTok Shop Partner API</td>
+<td class="p-3"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-medium">Permitida</span></td>
+<td class="p-3">Gestão de pedidos, catálogo e programa de afiliados</td>
+<td class="p-3"><a href="https://partner.tiktokshop.com/docv2" target="_blank" class="text-indigo-600 underline">partner.tiktokshop.com</a></td>
+</tr>
+<tr class="bg-rose-50/50">
+<td class="p-3 font-semibold text-slate-800">TikTok Content Posting API</td>
+<td class="p-3"><span class="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">Proibida no MVP</span></td>
+<td class="p-3 text-rose-700">Vídeos de apps não-auditados ficam PRIVADOS. Exige auditoria (2-6 sem). Proíbe logos/marcas d'água.</td>
+<td class="p-3"><a href="https://developers.tiktok.com/doc/content-posting-api-get-started-overview" target="_blank" class="text-indigo-600 underline">developers.tiktok.com</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- TAB 6: AUDITORIA DE DADOS & FONTES -->
+<div x-show="activeTab === 'audit'" x-cloak class="space-y-6">
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<h3 class="font-bold text-slate-900">Reconciliação e Auditoria de Casos Reais</h3>
+<input type="text" placeholder="Filtrar dados ou casos..." x-model="auditSearch" class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs w-full sm:w-64 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs text-slate-600">
+<thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+<tr>
+<th class="p-3">Entidade / Caso Auditado</th>
+<th class="p-3">Status de Verificação</th>
+<th class="p-3">Contexto Real vs Metas</th>
+<th class="p-3">Decisão de Aplicação</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<template x-for="(item, idx) in filteredAudit()" :key="idx">
+<tr class="hover:bg-slate-50">
+<td class="p-3 font-semibold text-slate-800" x-text="item.name"></td>
+<td class="p-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold"
+:class="{
+'bg-emerald-100 text-emerald-800': item.status === 'VERIFICADO',
+'bg-amber-100 text-amber-800': item.status === 'PARCIAL',
+'bg-rose-100 text-rose-800': item.status === 'NÃO VERIFICÁVEL / DESCARTADO'
+}"
+x-text="item.status"></span>
+</td>
+<td class="p-3 text-slate-600" x-text="item.context"></td>
+<td class="p-3 font-medium text-slate-700" x-text="item.decision"></td>
+</tr>
+</template>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- ALPINE.JS APP LOGIC -->
+<script>
+function appData() {
+return {
+activeTab: 'dashboard',
+tabTitles: {
+dashboard: 'Visão Geral Operacional & Estratégia',
+financials: 'Simulador Financeiro Interativo',
+roadmap: 'Checklist de Execução de 16 Semanas',
+budget: 'Gestão e Alocação do Capital (US$ 1.000)',
+tech: 'Arquitetura de APIs & Módulos de Software',
+audit: 'Auditoria e Reconciliação de Dados'
+},
+tabSubtitles: {
+dashboard: 'Resumo executivo do modelo de negócio DTC Print-on-Demand (SoCal 2026)',
+financials: 'Calcule e ajuste margens de contribuição, custos e volume necessário',
+roadmap: 'Passo a passo com gatilhos de correção para atingir US$ 4.000 líquidos/mês',
+budget: 'Distribuição detalhada entre custos fixos essenciais e aportes condicionados',
+tech: 'Blueprint técnico para desenvolvimento progressivo da aplicação (2-4h/dia)',
+audit: 'Validação rigorosa de benchmarks de mercado e cases reais citados'
+},
+// Calculator Data
+calc: {
+retailPrice: 42.00,
+baseCost: 10.00,
+shipping: 4.75,
+tiktokFeePercent: 6.0,
+affiliateCommissionPercent: 15.0
+},
+resetCalc() {
+this.calc.retailPrice = 42.00;
+this.calc.baseCost = 10.00;
+this.calc.shipping = 4.75;
+this.calc.tiktokFeePercent = 6.0;
+this.calc.affiliateCommissionPercent = 15.0;
+},
+netProfitTikTokOrganic() {
+let totalCost = this.calc.baseCost + this.calc.shipping;
+let platformFee = (this.calc.retailPrice * (this.calc.tiktokFeePercent / 100));
+return this.calc.retailPrice - totalCost - platformFee;
+},
+unitsNeededTikTokOrganic() {
+let profit = this.netProfitTikTokOrganic();
+return profit > 0 ? Math.ceil(4000 / profit) : 0;
+},
+// Checklist Data
+checklist: [
+{
+weeks: 'Semanas 1–2',
+title: 'Setup Operacional & Primeiras Amostras',
+goal: 'Lojas ativas e 3 vídeos/dia publicados',
+trigger: 'Se a entrega das amostras CA demorar > 6 dias, trocar o fornecedor padrão (SwiftPOD ↔ Awkward Styles).',
+tasks: [
+{ text: 'Abrir TikTok Shop (taxa 6% ou 3% promo) e loja na Etsy', done: false },
+{ text: 'Conectar Printify com foco nos providers da Califórnia', done: false },
+{ text: 'Pedir 3 a 4 amostras para testes de qualidade e gravação de conteúdo', done: false },
+{ text: 'Publicar as primeiras 10 listagens na Etsy e 8 SKUs no TikTok Shop', done: false }
+]
+},
+{
+weeks: 'Semanas 3–4',
+title: 'Produção de Conteúdo & Seeding de Afiliados',
+goal: 'Primeira venda até a S3 + 10 vendas/semana na S4',
+trigger: 'Se houver 0 vendas até o fim da S4, revisar a oferta, o preço e os ângulos dos vídeos (sem alterar os produtos).',
+tasks: [
+{ text: 'Expandir catálogo para 40 listagens otimizadas na Etsy', done: false },
+{ text: 'Manter frequência diária de 2 a 3 vídeos orgânicos de ateliê', done: false },
+{ text: 'Recrutar e enviar amostras para os primeiros 15 afiliados', done: false }
+]
+},
+{
+weeks: 'Semanas 5–8',
+title: 'Tração Inicial & Consolidação dos Campeões',
+goal: 'Faturamento run-rate de US$ 1.000/mês na S8 (~24 vendas/mês)',
+trigger: 'Se o run-rate na S8 for < US$ 500, desativar SKUs sem vendas e focar nos 3 designs com maior CTR de vídeo.',
+tasks: [
+{ text: 'Dobrar a variação de produtos dos SKUs vencedores', done: false },
+{ text: 'Manter base de 20 a 30 afiliados ativos gerando conteúdo', done: false }
+]
+},
+{
+weeks: 'Semanas 9–12',
+title: 'Escala Orgânica & Estruturação do Canal Próprio',
+goal: 'Faturamento run-rate de US$ 2.000–2.500/mês na S12',
+trigger: 'Se a desistência de afiliados for > 60% em 90 dias, migrar o top 20% para comissão de 18–25% com acesso antecipado a lançamentos.',
+tasks: [
+{ text: 'Ritmo semanal de recrutamento (+5 a 10 afiliados por semana)', done: false },
+{ text: 'Testar loja própria headless (Next.js/Shopify) com captura de e-mails', done: false }
+]
+},
+{
+weeks: 'Semanas 13–16',
+title: 'Consolidação da Meta de US$ 4.000 Líquidos',
+goal: 'Run-rate de US$ 4.000 líquidos/mês (~162 unidades/mês)',
+trigger: 'Se na S14 o run-rate for < US$ 3.000, ativar anúncios de amplificação ($10/dia) APENAS no criativo orgânico comprovado. Se ROAS < 2,0x em 14 dias, pausar.',
+tasks: [
+{ text: 'Amplificação pontual de criativos com ROAS orgânico ≥ 3,0x', done: false },
+{ text: 'Campanhas automatizadas de e-mail e recuperação de carrinho', done: false }
+]
+}
+],
+completedTasksPercentage() {
+let total = 0;
+let done = 0;
+this.checklist.forEach(phase => {
+phase.tasks.forEach(t => {
+total++;
+if (t.done) done++;
+});
+});
+return total > 0 ? Math.round((done / total) * 100) : 0;
+},
+// Audit Data Table
+auditSearch: '',
+auditData: [
+{
+name: 'Portland Leather Goods',
+status: 'VERIFICADO',
+context: 'Marca gigante de $100M+/ano usou blitz de 500 afiliados e 3.800 vídeos.',
+decision: 'Mecanismo de afiliados é válido, mas o crescimento de $0 a $1M em 20 dias não é aplicável para um início do zero.'
+},
+{
+name: 'Emily Odio-Sutton',
+status: 'VERIFICADO',
+context: 'Etsy de ￼
+￼
+},
+{
+￼
+￼
+￼
+￼
+},
+{
+￼
+￼
+￼
+￼
+},
+{
+￼
+￼
+￼
+￼
+},
+{
+￼
+￼
+￼
+￼ 2,44 por camiseta.'
+}
+],
+filteredAudit() {
+if (!this.auditSearch) return this.auditData;
+let q = this.auditSearch.toLowerCase();
+return this.auditData.filter(i =>
+i.name.toLowerCase().includes(q) ||
+i.context.toLowerCase().includes(q) ||
+i.decision.toLowerCase().includes(q)
+);
+}
+}
+}
+</script>
+</body>
+</html>
