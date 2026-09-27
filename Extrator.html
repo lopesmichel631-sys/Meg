@@ -37,11 +37,19 @@ hr{border:none;border-top:1px solid var(--regua);margin:14px 0;}
 .fotolinha{align-items:center;}
 .fotoprev{width:44px;height:44px;border-radius:5px;object-fit:cover;border:1px solid var(--regua);}
 .caixa .dica{margin:0 0 10px;color:var(--suave);}
+.mudou{background:#FFF1D6;color:#4A3000;border-radius:3px;padding:14px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.5;}
+.mudou a{display:inline-block;margin-top:8px;background:var(--vinho);color:var(--papel);text-decoration:none;font-size:12px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;padding:10px 15px;border-radius:2px;}
 </style>
 </head>
 <body>
 
 <div class="raiz">
+  <div class="mudou">
+    <b>O Extrator mudou para o Império.</b> Lá ele manda as cartas direto para o Contatos, com foto, sem Gist e sem link.
+    Este aqui continua funcionando, e o link dele já abre o Contatos do Império.<br>
+    <a href="https://imperio.lopesmichel631.workers.dev/residencia/extrator/">Abrir o Extrator no Império</a>
+  </div>
   <h1>Extrator</h1>
   <p class="sub">Android → Meg</p>
   <p class="dica">Lê os prints do perfil aqui no Android e manda os dados prontos (com foto) para o Meg no iPhone.</p>
@@ -97,7 +105,7 @@ hr{border:none;border-top:1px solid var(--regua);margin:14px 0;}
     <hr>
     <p class="dica">Sem internet? Use o link local como alternativa (sem foto, por causa do tamanho).</p>
     <label class="campo">
-      <span>Endereço do Meg no iPhone</span>
+      <span>Endereço do Contatos (no Império)</span>
       <input type="text" id="destino" placeholder="https://seusite/meg/">
     </label>
     <div class="fileiras">
@@ -875,6 +883,14 @@ try {
   $("ghtoken").value = localStorage.getItem(CHAVE_TOKEN) || "";
   $("ghgist").value = localStorage.getItem(CHAVE_GIST) || "";
 } catch {}
+/* o Meg (Contatos) mudou para o Império: o link passa a abrir o Contatos de lá */
+const DESTINO_IMPERIO = "https://imperio.lopesmichel631.workers.dev/residencia/contatos/";
+if ($("destino").value.indexOf("imperio.lopesmichel631.workers.dev") < 0) {
+  $("destino").value = DESTINO_IMPERIO;
+  try {
+    localStorage.setItem(CHAVE_DESTINO, DESTINO_IMPERIO);
+  } catch {}
+}
 $("destino").addEventListener("change", () => {
   try {
     localStorage.setItem(CHAVE_DESTINO, $("destino").value.trim());
